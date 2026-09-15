@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+data/pet_state.json
+data/cursor_tokens.json
+data/backups/
+data/anims/
+data/*.log
+*.egg-info/
+dist/
+build/
+.env
+.DS_Store
