@@ -1,6 +1,6 @@
 # toy_lair assistant
 
-FastAPI backend for the Rabbit R1 creation and Telegram. Hosted as Heroku app `toy-lair-assistant`.
+FastAPI backend for the Rabbit R1 creation and Telegram. Hosted as Heroku app `toy-lair-assistant` at `https://toy-lair-assistant-e9003db7d945.herokuapp.com`.
 
 ## Local
 
