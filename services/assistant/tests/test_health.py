@@ -20,3 +20,4 @@ def test_creation_index_is_r1_sized() -> None:
     body = response.text
     assert "240" in body
     assert "282" in body
+    assert 'id="pair"' in body

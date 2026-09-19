@@ -7,6 +7,7 @@
   var recorder = null;
   var chunks = [];
   var lastEvent = "";
+  var pairTimer = null;
 
   function $(id) {
     return document.getElementById(id);
@@ -14,6 +15,10 @@
 
   function setStatus(text) {
     $("status").textContent = text;
+  }
+
+  function showPair(code) {
+    $("pair").textContent = code ? code : "";
   }
 
   function logEvent(name) {
@@ -25,22 +30,110 @@
     return { "X-Assistant-Token": token };
   }
 
+  function storage() {
+    if (window.creationStorage && window.creationStorage.secure) {
+      return window.creationStorage.secure;
+    }
+    return {
+      getItem: function (key) {
+        return Promise.resolve(window.localStorage.getItem(key));
+      },
+      setItem: function (key, value) {
+        window.localStorage.setItem(key, value);
+        return Promise.resolve();
+      },
+      removeItem: function (key) {
+        window.localStorage.removeItem(key);
+        return Promise.resolve();
+      },
+    };
+  }
+
+  function storeToken(value) {
+    return storage()
+      .setItem(TOKEN_KEY, btoa(value))
+      .catch(function () {});
+  }
+
+  function clearToken() {
+    token = "";
+    return storage()
+      .removeItem(TOKEN_KEY)
+      .catch(function () {});
+  }
+
   function loadToken() {
-    try {
-      if (window.creationStorage && window.creationStorage.plain) {
-        var stored = window.creationStorage.plain.getItem(TOKEN_KEY);
-        if (stored) token = atob(stored);
-      }
-    } catch (err) {}
     var q = new URLSearchParams(window.location.search).get("token");
     if (q) {
       token = q;
-      try {
-        if (window.creationStorage && window.creationStorage.plain) {
-          window.creationStorage.plain.setItem(TOKEN_KEY, btoa(q));
-        }
-      } catch (err) {}
+      return storeToken(q).then(function () {
+        return token;
+      });
     }
+    return storage()
+      .getItem(TOKEN_KEY)
+      .then(function (stored) {
+        if (stored) token = atob(stored);
+        return token;
+      })
+      .catch(function () {
+        return token;
+      });
+  }
+
+  function stopPairing() {
+    if (pairTimer) {
+      clearInterval(pairTimer);
+      pairTimer = null;
+    }
+    showPair("");
+  }
+
+  function startPairing() {
+    stopPairing();
+    setStatus("pairing");
+    fetch("/api/pair/start", { method: "POST" })
+      .then(function (res) {
+        if (!res.ok) throw new Error("pair " + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        showPair(data.code);
+        setStatus("enter code on install page");
+        pairTimer = setInterval(function () {
+          fetch("/api/pair/claim?secret=" + encodeURIComponent(data.secret))
+            .then(function (res) {
+              if (res.status === 404) {
+                startPairing();
+                return null;
+              }
+              if (!res.ok) throw new Error("claim " + res.status);
+              return res.json();
+            })
+            .then(function (body) {
+              if (!body || body.status !== "approved" || !body.token) return;
+              stopPairing();
+              token = body.token;
+              return storeToken(token).then(function () {
+                loadToday();
+              });
+            })
+            .catch(function (err) {
+              setStatus(String(err.message || err));
+            });
+        }, 2000);
+      })
+      .catch(function (err) {
+        setStatus(String(err.message || err));
+      });
+  }
+
+  function rejectIfUnauthorized(res) {
+    if (res.status !== 401) return Promise.resolve(res);
+    return clearToken().then(function () {
+      startPairing();
+      throw new Error("pairing required");
+    });
   }
 
   function render() {
@@ -68,10 +161,11 @@
 
   function loadToday() {
     if (!token) {
-      setStatus("missing token");
+      startPairing();
       return;
     }
     fetch("/api/today", { headers: headers() })
+      .then(rejectIfUnauthorized)
       .then(function (res) {
         if (!res.ok) throw new Error("today " + res.status);
         return res.json();
@@ -93,9 +187,11 @@
     fetch("/api/tasks/" + encodeURIComponent(item.id) + "/complete", {
       method: "POST",
       headers: headers(),
-    }).then(function (res) {
-      if (res.ok) loadToday();
-    });
+    })
+      .then(rejectIfUnauthorized)
+      .then(function (res) {
+        if (res.ok) loadToday();
+      });
   }
 
   function enableMic() {
@@ -140,6 +236,7 @@
       body.append("audio", blob, "clip.webm");
       setStatus("sending");
       fetch("/api/voice", { method: "POST", headers: headers(), body: body })
+        .then(rejectIfUnauthorized)
         .then(function (res) {
           return res.json().then(function (data) {
             if (!res.ok) throw new Error(data.detail || res.status);
@@ -194,7 +291,13 @@
     stopRec();
   });
 
-  loadToken();
-  render();
-  loadToday();
+  loadToken()
+    .then(function () {
+      render();
+      if (token) loadToday();
+      else startPairing();
+    })
+    .catch(function () {
+      startPairing();
+    });
 })();

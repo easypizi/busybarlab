@@ -6,12 +6,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from toy_lair_assistant.auth import require_token
 from toy_lair_assistant.clock import Clock
-from toy_lair_assistant.install_qr import creation_url, qr_svg, short_install_url
+from toy_lair_assistant.install_qr import creation_page_url, qr_svg
+from toy_lair_assistant.pairing import Pairing, PairingFull
 from toy_lair_assistant.paths import creation_dir
 from toy_lair_assistant.settings import Settings
 from toy_lair_assistant.ticker import run_periodic
@@ -29,6 +30,7 @@ class AppDeps:
     store: Any = None
     zayka: Any = None
     notify: Any = None
+    pairing: Pairing | None = None
 
 
 def create_app(
@@ -42,6 +44,7 @@ def create_app(
     store: Any = None,
     zayka: Any = None,
     notify: Any = None,
+    pairing: Pairing | None = None,
 ) -> FastAPI:
     settings = settings or Settings()
     deps = AppDeps(
@@ -54,6 +57,7 @@ def create_app(
         store=store,
         zayka=zayka,
         notify=notify,
+        pairing=pairing or Pairing(settings.assistant_api_token),
     )
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -150,13 +154,36 @@ def create_app(
         deps.notify.handle_update(update, deps.agent, deps.speech)
         return {"ok": True}
 
-    @app.get("/c")
-    def short_creation(request: Request) -> RedirectResponse:
-        base = deps.settings.public_base_url.strip() or str(request.base_url)
-        return RedirectResponse(
-            creation_url(base, deps.settings.assistant_api_token),
-            status_code=302,
-        )
+    @app.post("/api/pair/start")
+    def pair_start() -> dict[str, Any]:
+        if deps.pairing is None:
+            raise HTTPException(status_code=503, detail="pairing is not configured")
+        try:
+            return deps.pairing.start(deps.clock.now())
+        except PairingFull:
+            raise HTTPException(status_code=429, detail="too many pairing sessions")
+
+    @app.post("/api/pair/approve")
+    def pair_approve(
+        payload: dict[str, Any],
+        x_assistant_token: str | None = Header(default=None),
+    ) -> dict[str, bool]:
+        _guard(x_assistant_token)
+        if deps.pairing is None:
+            raise HTTPException(status_code=503, detail="pairing is not configured")
+        code = str(payload.get("code") or "").strip()
+        if not deps.pairing.approve(code, deps.clock.now()):
+            raise HTTPException(status_code=404, detail="unknown pairing code")
+        return {"ok": True}
+
+    @app.get("/api/pair/claim")
+    def pair_claim(secret: str = "") -> dict[str, str]:
+        if deps.pairing is None:
+            raise HTTPException(status_code=503, detail="pairing is not configured")
+        result = deps.pairing.claim(secret, deps.clock.now())
+        if result is None:
+            raise HTTPException(status_code=404, detail="unknown pairing session")
+        return result
 
     @app.get("/api/install-qr.svg")
     def install_qr_svg(
@@ -165,7 +192,7 @@ def create_app(
     ) -> Response:
         _guard(x_assistant_token)
         base = deps.settings.public_base_url.strip() or str(request.base_url)
-        return Response(content=qr_svg(short_install_url(base)), media_type="image/svg+xml")
+        return Response(content=qr_svg(creation_page_url(base)), media_type="image/svg+xml")
 
     @app.post("/internal/tick")
     def tick(x_assistant_token: str | None = Header(default=None)) -> dict[str, Any]:

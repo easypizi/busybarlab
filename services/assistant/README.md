@@ -24,7 +24,14 @@ Python 3.12 via `.python-version`. Buildpacks: `lstoll/heroku-buildpack-monorepo
 
 Config vars: see `.env.example`. Use Basic dyno so the webhook and the in-process ticker do not sleep. Add Heroku Postgres (`DATABASE_URL`). The app ticks every 60 seconds in process. `/internal/tick` is only for a manual check.
 
-Creation install: open `https://<app>/creation/install.html?token=<ASSISTANT_API_TOKEN>` and scan the QR on the r1. The QR is generated on this server (`/api/install-qr.svg`).
+Creation install:
+
+1. Open `https://<app>/creation/install.html?token=<ASSISTANT_API_TOKEN>`.
+2. On the r1: Creations → add via QR, scan the QR. It encodes `https://<app>/creation/` (200 HTML, no redirect, no token).
+3. The creation shows a 4-digit pair code. Type it on the install page and press approve.
+4. The r1 claims the token once and stores it in `creationStorage.secure`.
+
+The QR is generated on this server (`/api/install-qr.svg`). `/api/pair/start` and `/api/pair/claim` are unauthenticated. `/api/pair/approve` requires `X-Assistant-Token`. Live pairing sessions expire after 10 minutes (max 20 at once).
 
 Zayka: set `ZAYKA_DIR` and `ZAYKA_REPO_URL=https://<fine-grained-pat>@github.com/easypizi/zayka.git`. The vault is cloned on boot and pulled every hour. Do not index `40 Areas/sensitive`.
 

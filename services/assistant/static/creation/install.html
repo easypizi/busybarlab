@@ -8,6 +8,7 @@
     #qr { background: #fff; padding: 24px; display: inline-block; }
     #qr svg { width: 360px; height: 360px; }
     code { word-break: break-all; }
+    #code { font-size: 24px; letter-spacing: 0.2em; width: 6em; }
   </style>
 </head>
 <body>
@@ -15,11 +16,17 @@
   <p>Creations → add via QR. Bright screen, hold the r1 20–30 cm away.</p>
   <p id="qr"></p>
   <p>Creation URL: <code id="url"></code></p>
+  <p>After the r1 opens the creation, type the 4-digit pair code and approve.</p>
+  <p>
+    <input id="code" inputmode="numeric" maxlength="4" placeholder="4821" autocomplete="one-time-code">
+    <button id="approve" type="button">approve</button>
+  </p>
+  <p id="pair-status"></p>
   <p id="error"></p>
   <script>
     var params = new URLSearchParams(location.search);
     var token = params.get("token") || "";
-    var target = location.origin + "/c";
+    var target = location.origin + "/creation/";
     document.getElementById("url").textContent = target;
     if (!token) {
       document.getElementById("error").textContent = "missing token";
@@ -35,6 +42,36 @@
         document.getElementById("error").textContent = String(err.message || err);
       });
     }
+    document.getElementById("approve").addEventListener("click", function () {
+      var code = document.getElementById("code").value.trim();
+      var status = document.getElementById("pair-status");
+      if (!token) {
+        status.textContent = "missing token";
+        return;
+      }
+      if (!/^\d{4}$/.test(code)) {
+        status.textContent = "enter the 4-digit code";
+        return;
+      }
+      status.textContent = "approving";
+      fetch("/api/pair/approve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Assistant-Token": token
+        },
+        body: JSON.stringify({ code: code })
+      }).then(function (res) {
+        if (res.status === 404) {
+          status.textContent = "not found or expired";
+          return;
+        }
+        if (!res.ok) throw new Error("approve " + res.status);
+        status.textContent = "ok";
+      }).catch(function (err) {
+        status.textContent = String(err.message || err);
+      });
+    });
   </script>
 </body>
 </html>
