@@ -33,7 +33,14 @@
       }
     } catch (err) {}
     var q = new URLSearchParams(window.location.search).get("token");
-    if (q) token = q;
+    if (q) {
+      token = q;
+      try {
+        if (window.creationStorage && window.creationStorage.plain) {
+          window.creationStorage.plain.setItem(TOKEN_KEY, btoa(q));
+        }
+      } catch (err) {}
+    }
   }
 
   function render() {

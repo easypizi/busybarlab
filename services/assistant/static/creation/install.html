@@ -5,22 +5,35 @@
   <title>Install toy_lair on r1</title>
   <style>
     body { font: 16px/1.4 sans-serif; max-width: 420px; margin: 40px auto; }
-    img { width: 220px; height: 220px; }
+    #qr svg { width: 220px; height: 220px; }
     code { word-break: break-all; }
   </style>
 </head>
 <body>
   <h1>Install toy_lair</h1>
   <p>Scan this QR with the r1 Creations camera.</p>
-  <p><img id="qr" alt="QR code"></p>
+  <p id="qr"></p>
   <p>Creation URL: <code id="url"></code></p>
+  <p id="error"></p>
   <script>
     var params = new URLSearchParams(location.search);
-    var target = params.get("url") || (location.origin + "/creation/");
+    var token = params.get("token") || "";
+    var target = location.origin + "/creation/?token=" + encodeURIComponent(token);
     document.getElementById("url").textContent = target;
-    document.getElementById("qr").src =
-      "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" +
-      encodeURIComponent(target);
+    if (!token) {
+      document.getElementById("error").textContent = "missing token";
+    } else {
+      fetch("/api/install-qr.svg", {
+        headers: { "X-Assistant-Token": token }
+      }).then(function (res) {
+        if (!res.ok) throw new Error("qr " + res.status);
+        return res.text();
+      }).then(function (svg) {
+        document.getElementById("qr").innerHTML = svg;
+      }).catch(function (err) {
+        document.getElementById("error").textContent = String(err.message || err);
+      });
+    }
   </script>
 </body>
 </html>

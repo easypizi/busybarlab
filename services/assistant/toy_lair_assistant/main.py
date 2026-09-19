@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import asyncio
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from toy_lair_assistant.auth import require_token
 from toy_lair_assistant.clock import Clock
+from toy_lair_assistant.install_qr import creation_url, qr_svg
 from toy_lair_assistant.paths import creation_dir
 from toy_lair_assistant.settings import Settings
+from toy_lair_assistant.ticker import run_periodic
+from toy_lair_assistant.zayka_sync import attach_zayka
 
 
 @dataclass
@@ -49,7 +55,37 @@ def create_app(
         zayka=zayka,
         notify=notify,
     )
-    app = FastAPI(title="toy_lair assistant")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        tasks: list[asyncio.Task[None]] = []
+        if deps.settings.tick_interval_seconds > 0:
+
+            def _tick() -> None:
+                scheduler = getattr(app.state, "scheduler", None)
+                if scheduler is None:
+                    return
+                scheduler.tick(deps.clock.now())
+
+            tasks.append(
+                asyncio.create_task(
+                    run_periodic(_tick, deps.settings.tick_interval_seconds)
+                )
+            )
+        if deps.settings.zayka_dir and deps.settings.zayka_sync_interval_seconds > 0:
+            tasks.append(
+                asyncio.create_task(
+                    run_periodic(
+                        lambda: attach_zayka(deps),
+                        deps.settings.zayka_sync_interval_seconds,
+                    )
+                )
+            )
+        yield
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    app = FastAPI(title="toy_lair assistant", lifespan=lifespan)
     app.state.deps = deps
 
     @app.get("/health")
@@ -113,6 +149,16 @@ def create_app(
             raise HTTPException(status_code=503, detail="telegram is not configured")
         deps.notify.handle_update(update, deps.agent, deps.speech)
         return {"ok": True}
+
+    @app.get("/api/install-qr.svg")
+    def install_qr_svg(
+        request: Request,
+        x_assistant_token: str | None = Header(default=None),
+    ) -> Response:
+        _guard(x_assistant_token)
+        base = deps.settings.public_base_url.strip() or str(request.base_url)
+        url = creation_url(base, deps.settings.assistant_api_token)
+        return Response(content=qr_svg(url), media_type="image/svg+xml")
 
     @app.post("/internal/tick")
     def tick(x_assistant_token: str | None = Header(default=None)) -> dict[str, Any]:

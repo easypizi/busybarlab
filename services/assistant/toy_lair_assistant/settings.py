@@ -2,9 +2,14 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_SERVICE_DIR = Path(__file__).resolve().parent.parent
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(_SERVICE_DIR / ".env", ".env"),
+        extra="ignore",
+    )
 
     assistant_api_token: str = ""
     openai_api_key: str = ""
@@ -26,6 +31,8 @@ class Settings(BaseSettings):
     reminder_lead_minutes: int = 15
     briefing_hour: int = 8
     public_base_url: str = ""
+    tick_interval_seconds: float = 60
+    zayka_sync_interval_seconds: float = 3600
 
     def zayka_path(self) -> Path | None:
         if not self.zayka_dir:
