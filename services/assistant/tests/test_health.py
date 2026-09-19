@@ -21,3 +21,7 @@ def test_creation_index_is_r1_sized() -> None:
     assert "240" in body
     assert "282" in body
     assert 'id="pair"' in body
+    script = client.get("/creation/app.js")
+    assert script.status_code == 200
+    assert "herokuapp.com" in script.text
+    assert "/api/pair/start" in script.text

@@ -6,12 +6,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from toy_lair_assistant.auth import require_token
 from toy_lair_assistant.clock import Clock
-from toy_lair_assistant.install_qr import creation_page_url, qr_svg
+from toy_lair_assistant.install_qr import creation_target_url, qr_png, qr_svg
 from toy_lair_assistant.pairing import Pairing, PairingFull
 from toy_lair_assistant.paths import creation_dir
 from toy_lair_assistant.settings import Settings
@@ -91,6 +92,14 @@ def create_app(
 
     app = FastAPI(title="toy_lair assistant", lifespan=lifespan)
     app.state.deps = deps
+    pages_origin = deps.settings.creation_origin()
+    if pages_origin:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[pages_origin],
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -185,6 +194,13 @@ def create_app(
             raise HTTPException(status_code=404, detail="unknown pairing session")
         return result
 
+    @app.get("/api/creation-url")
+    def creation_url(request: Request) -> dict[str, str]:
+        base = deps.settings.public_base_url.strip() or str(request.base_url)
+        return {
+            "url": creation_target_url(base, deps.settings.creation_public_url)
+        }
+
     @app.get("/api/install-qr.svg")
     def install_qr_svg(
         request: Request,
@@ -192,7 +208,18 @@ def create_app(
     ) -> Response:
         _guard(x_assistant_token)
         base = deps.settings.public_base_url.strip() or str(request.base_url)
-        return Response(content=qr_svg(creation_page_url(base)), media_type="image/svg+xml")
+        return Response(
+            content=qr_svg(creation_target_url(base, deps.settings.creation_public_url)),
+            media_type="image/svg+xml",
+        )
+
+    @app.get("/api/install-qr.png")
+    def install_qr_png(request: Request) -> Response:
+        base = deps.settings.public_base_url.strip() or str(request.base_url)
+        return Response(
+            content=qr_png(creation_target_url(base, deps.settings.creation_public_url)),
+            media_type="image/png",
+        )
 
     @app.post("/internal/tick")
     def tick(x_assistant_token: str | None = Header(default=None)) -> dict[str, Any]:

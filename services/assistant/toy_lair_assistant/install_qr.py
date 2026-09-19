@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 
 import segno
@@ -27,5 +28,25 @@ def qr_svg(url: str) -> str:
     return segno.make(creation_json(url), error="m").svg_inline(scale=10, border=4)
 
 
+def qr_png(url: str) -> bytes:
+    buffer = io.BytesIO()
+    segno.make(creation_json(url), error="m").save(
+        buffer,
+        kind="png",
+        scale=10,
+        border=4,
+        dark="#000000",
+        light="#ffffff",
+    )
+    return buffer.getvalue()
+
+
 def creation_page_url(base: str) -> str:
     return f"{base.rstrip('/')}/creation/"
+
+
+def creation_target_url(base: str, public: str = "") -> str:
+    host = public.strip()
+    if host:
+        return f"{host.rstrip('/')}/"
+    return creation_page_url(base)

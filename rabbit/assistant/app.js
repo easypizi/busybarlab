@@ -1,4 +1,7 @@
 (function () {
+  var API = /github\.io$/.test(location.hostname)
+    ? "https://toy-lair-assistant-e9003db7d945.herokuapp.com"
+    : "";
   var TOKEN_KEY = "assistantToken";
   var token = "";
   var items = [];
@@ -92,7 +95,7 @@
   function startPairing() {
     stopPairing();
     setStatus("pairing");
-    fetch("/api/pair/start", { method: "POST" })
+    fetch(API + "/api/pair/start", { method: "POST" })
       .then(function (res) {
         if (!res.ok) throw new Error("pair " + res.status);
         return res.json();
@@ -101,7 +104,7 @@
         showPair(data.code);
         setStatus("enter code on install page");
         pairTimer = setInterval(function () {
-          fetch("/api/pair/claim?secret=" + encodeURIComponent(data.secret))
+          fetch(API + "/api/pair/claim?secret=" + encodeURIComponent(data.secret))
             .then(function (res) {
               if (res.status === 404) {
                 startPairing();
@@ -164,7 +167,7 @@
       startPairing();
       return;
     }
-    fetch("/api/today", { headers: headers() })
+    fetch(API + "/api/today", { headers: headers() })
       .then(rejectIfUnauthorized)
       .then(function (res) {
         if (!res.ok) throw new Error("today " + res.status);
@@ -184,7 +187,7 @@
   function completeSelected() {
     var item = items[selected];
     if (!item || item.kind !== "task") return;
-    fetch("/api/tasks/" + encodeURIComponent(item.id) + "/complete", {
+    fetch(API + "/api/tasks/" + encodeURIComponent(item.id) + "/complete", {
       method: "POST",
       headers: headers(),
     })
@@ -235,7 +238,7 @@
       var body = new FormData();
       body.append("audio", blob, "clip.webm");
       setStatus("sending");
-      fetch("/api/voice", { method: "POST", headers: headers(), body: body })
+      fetch(API + "/api/voice", { method: "POST", headers: headers(), body: body })
         .then(rejectIfUnauthorized)
         .then(function (res) {
           return res.json().then(function (data) {
