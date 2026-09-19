@@ -6,12 +6,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from toy_lair_assistant.auth import require_token
 from toy_lair_assistant.clock import Clock
-from toy_lair_assistant.install_qr import creation_url, qr_svg
+from toy_lair_assistant.install_qr import creation_url, qr_svg, short_install_url
 from toy_lair_assistant.paths import creation_dir
 from toy_lair_assistant.settings import Settings
 from toy_lair_assistant.ticker import run_periodic
@@ -150,6 +150,14 @@ def create_app(
         deps.notify.handle_update(update, deps.agent, deps.speech)
         return {"ok": True}
 
+    @app.get("/c")
+    def short_creation(request: Request) -> RedirectResponse:
+        base = deps.settings.public_base_url.strip() or str(request.base_url)
+        return RedirectResponse(
+            creation_url(base, deps.settings.assistant_api_token),
+            status_code=302,
+        )
+
     @app.get("/api/install-qr.svg")
     def install_qr_svg(
         request: Request,
@@ -157,8 +165,7 @@ def create_app(
     ) -> Response:
         _guard(x_assistant_token)
         base = deps.settings.public_base_url.strip() or str(request.base_url)
-        url = creation_url(base, deps.settings.assistant_api_token)
-        return Response(content=qr_svg(url), media_type="image/svg+xml")
+        return Response(content=qr_svg(short_install_url(base)), media_type="image/svg+xml")
 
     @app.post("/internal/tick")
     def tick(x_assistant_token: str | None = Header(default=None)) -> dict[str, Any]:

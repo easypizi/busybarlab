@@ -5,7 +5,7 @@ import json
 import segno
 
 CREATION_TITLE = "toy_lair"
-CREATION_DESCRIPTION = "Personal assistant for Todoist and Google Calendar"
+CREATION_DESCRIPTION = "Assistant"
 CREATION_THEME = "#FE5000"
 
 
@@ -24,8 +24,12 @@ def creation_json(url: str) -> str:
 
 
 def qr_svg(url: str) -> str:
-    return segno.make(creation_json(url)).svg_inline(scale=4)
+    return segno.make(creation_json(url), error="m").svg_inline(scale=10, border=4)
 
 
 def creation_url(base: str, token: str) -> str:
     return f"{base.rstrip('/')}/creation/?token={token}"
+
+
+def short_install_url(base: str) -> str:
+    return f"{base.rstrip('/')}/c"

@@ -30,4 +30,4 @@ Zayka: set `ZAYKA_DIR` and `ZAYKA_REPO_URL=https://<fine-grained-pat>@github.com
 
 ## Google OAuth (once)
 
-Create a Desktop OAuth client. Put `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`, then run `python -m toy_lair_assistant.google_auth` from `services/assistant`. Store the printed `GOOGLE_REFRESH_TOKEN`. Publish the OAuth consent screen (Testing refresh tokens expire after 7 days).
+Create a Desktop OAuth client. Keep Audience in **Testing**, add your Gmail as a test user. Do not publish: Calendar is a sensitive scope and unverified production returns 403. Put `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`, then run `python -m toy_lair_assistant.google_auth` from `services/assistant`. Store the printed `GOOGLE_REFRESH_TOKEN`. Testing refresh tokens expire after 7 days.
