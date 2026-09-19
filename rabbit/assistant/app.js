@@ -3,6 +3,11 @@
     ? "https://toy-lair-assistant-e9003db7d945.herokuapp.com"
     : "";
   var TOKEN_KEY = "assistantToken";
+  var STORAGE_STATUS = {
+    secure: "paired via secure",
+    plain: "storage: plain",
+    local: "storage: local",
+  };
   var token = "";
   var items = [];
   var selected = 0;
@@ -10,6 +15,7 @@
   var recorder = null;
   var chunks = [];
   var lastEvent = "";
+  var storageSource = "";
   var pairTimer = null;
 
   function $(id) {
@@ -24,64 +30,183 @@
     $("pair").textContent = code ? code : "";
   }
 
+  function refreshLog() {
+    var parts = [];
+    if (storageSource) parts.push("storage: " + storageSource);
+    if (lastEvent) parts.push(lastEvent);
+    $("event-log").textContent = parts.join(" · ");
+  }
+
+  function setStorageSource(name) {
+    storageSource = name || "";
+    refreshLog();
+  }
+
   function logEvent(name) {
     lastEvent = name;
-    $("event-log").textContent = name;
+    refreshLog();
   }
 
   function headers() {
     return { "X-Assistant-Token": token };
   }
 
-  function storage() {
-    if (window.creationStorage && window.creationStorage.secure) {
-      return window.creationStorage.secure;
-    }
+  function needsBridge() {
+    if (window.creationStorage) return false;
+    if (typeof PluginMessageHandler !== "undefined") return true;
+    return /Android/i.test(navigator.userAgent || "");
+  }
+
+  function waitForBridge() {
+    if (window.creationStorage || !needsBridge()) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var started = Date.now();
+      var timer = setInterval(function () {
+        if (window.creationStorage || Date.now() - started >= 3000) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 50);
+    });
+  }
+
+  function wrapStore(name, backend) {
     return {
+      name: name,
       getItem: function (key) {
-        return Promise.resolve(window.localStorage.getItem(key));
+        try {
+          return Promise.resolve(backend.getItem(key)).catch(function () {
+            return null;
+          });
+        } catch (err) {
+          return Promise.resolve(null);
+        }
       },
       setItem: function (key, value) {
-        window.localStorage.setItem(key, value);
-        return Promise.resolve();
+        try {
+          return Promise.resolve(backend.setItem(key, value));
+        } catch (err) {
+          return Promise.reject(err);
+        }
       },
       removeItem: function (key) {
-        window.localStorage.removeItem(key);
-        return Promise.resolve();
+        try {
+          return Promise.resolve(backend.removeItem(key));
+        } catch (err) {
+          return Promise.reject(err);
+        }
       },
     };
   }
 
+  function localStore() {
+    return wrapStore("local", {
+      getItem: function (key) {
+        try {
+          return window.localStorage.getItem(key);
+        } catch (err) {
+          return null;
+        }
+      },
+      setItem: function (key, value) {
+        window.localStorage.setItem(key, value);
+      },
+      removeItem: function (key) {
+        window.localStorage.removeItem(key);
+      },
+    });
+  }
+
+  function stores() {
+    var list = [];
+    if (window.creationStorage && window.creationStorage.secure) {
+      list.push(wrapStore("secure", window.creationStorage.secure));
+    }
+    if (window.creationStorage && window.creationStorage.plain) {
+      list.push(wrapStore("plain", window.creationStorage.plain));
+    }
+    list.push(localStore());
+    return list;
+  }
+
+  function decodeStored(stored) {
+    if (!stored) return "";
+    try {
+      return atob(stored);
+    } catch (err) {
+      return "";
+    }
+  }
+
+  function readToken() {
+    var list = stores();
+    var i = 0;
+    function next() {
+      if (i >= list.length) return Promise.resolve({ token: "", source: "" });
+      var store = list[i++];
+      return store
+        .getItem(TOKEN_KEY)
+        .then(function (stored) {
+          var value = decodeStored(stored);
+          if (value) return { token: value, source: store.name };
+          return next();
+        })
+        .catch(function () {
+          return next();
+        });
+    }
+    return next();
+  }
+
+  function writeToken(value) {
+    var encoded = btoa(value);
+    return Promise.all(
+      stores().map(function (store) {
+        return store.setItem(TOKEN_KEY, encoded).catch(function () {});
+      })
+    ).then(function () {
+      return readToken();
+    });
+  }
+
+  function applyTokenResult(result, fallback) {
+    token = result.token || fallback || "";
+    if (result.source) {
+      setStorageSource(result.source);
+      setStatus(STORAGE_STATUS[result.source] || "storage: " + result.source);
+      return;
+    }
+    setStorageSource("failed");
+    setStatus("storage failed");
+  }
+
   function storeToken(value) {
-    return storage()
-      .setItem(TOKEN_KEY, btoa(value))
-      .catch(function () {});
+    return writeToken(value).then(function (result) {
+      applyTokenResult(result, value);
+      return token;
+    });
   }
 
   function clearToken() {
     token = "";
-    return storage()
-      .removeItem(TOKEN_KEY)
-      .catch(function () {});
+    return Promise.all(
+      stores().map(function (store) {
+        return store.removeItem(TOKEN_KEY).catch(function () {});
+      })
+    ).then(function () {
+      setStorageSource("");
+    });
   }
 
   function loadToken() {
-    var q = new URLSearchParams(window.location.search).get("token");
-    if (q) {
-      token = q;
-      return storeToken(q).then(function () {
+    return waitForBridge().then(function () {
+      var q = new URLSearchParams(window.location.search).get("token");
+      if (q) return storeToken(q);
+      return readToken().then(function (result) {
+        if (result.token) applyTokenResult(result, "");
         return token;
       });
-    }
-    return storage()
-      .getItem(TOKEN_KEY)
-      .then(function (stored) {
-        if (stored) token = atob(stored);
-        return token;
-      })
-      .catch(function () {
-        return token;
-      });
+    });
   }
 
   function stopPairing() {
@@ -116,8 +241,7 @@
             .then(function (body) {
               if (!body || body.status !== "approved" || !body.token) return;
               stopPairing();
-              token = body.token;
-              return storeToken(token).then(function () {
+              return storeToken(body.token).then(function () {
                 loadToday();
               });
             })
@@ -139,6 +263,11 @@
     });
   }
 
+  function selectItem(index) {
+    selected = index;
+    render();
+  }
+
   function render() {
     var list = $("list");
     list.innerHTML = "";
@@ -158,6 +287,12 @@
       title.textContent = item.title;
       li.appendChild(kind);
       li.appendChild(title);
+      li.addEventListener("touchstart", function () {
+        selectItem(index);
+      });
+      li.addEventListener("click", function () {
+        selectItem(index);
+      });
       list.appendChild(li);
     });
   }

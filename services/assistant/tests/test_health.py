@@ -1,7 +1,14 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from toy_lair_assistant.main import create_app
 from toy_lair_assistant.settings import Settings
+
+
+def test_procfile_pins_single_worker() -> None:
+    text = (Path(__file__).resolve().parents[1] / "Procfile").read_text()
+    assert "--workers 1" in text
 
 
 def test_health_ok() -> None:
@@ -25,3 +32,12 @@ def test_creation_index_is_r1_sized() -> None:
     assert script.status_code == 200
     assert "herokuapp.com" in script.text
     assert "/api/pair/start" in script.text
+    assert "waitForBridge" in script.text
+    assert "creationStorage.plain" in script.text
+    assert "paired via secure" in script.text
+    assert "storage: local" in script.text
+    assert "storage failed" in script.text
+    assert 'id="hint"' in body
+    assert "wheel select" in body
+    assert "PTT click done" in body
+    assert "hold PTT talk" in body
