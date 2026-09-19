@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from apps.cursor_pet.tokens import StoredToken, TokenStore, load_token_store, save_token_store
+from busybar.cursor_pet.tokens import StoredToken, TokenStore, load_token_store, save_token_store
 
 
 def test_token_store_roundtrip(tmp_path: Path) -> None:

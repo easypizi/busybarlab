@@ -11,7 +11,7 @@ Python app that drives a BUSY Bar front LED matrix (72x16) with hopping frogs an
 - Runtime: host Python script via `busylib`, USB default `10.0.4.20`, optional Wi-Fi token.
 - Front display only. Manual launch. No audio. No Wednesday auto-start daemon.
 - Element-based rendering: frog phase PNGs uploaded once, coordinates updated each tick. Native text scroll for the marquee.
-- Shared `apps/common` backends: live `BusyBarBackend` and `TerminalBackend` (`--sim`).
+- Shared `busybar/common` backends: live `BusyBarBackend` and `TerminalBackend` (`--sim`).
 - Non-Wednesday mode: gray sad frogs + "IT IS NOT WEDNESDAY MY DUDES".
 - Button press (OK/START/CUSTOM) triggers marquee immediately.
 - Occasional fly + tongue catch animation. Random frog speed/size variation.
@@ -25,9 +25,9 @@ Python app that drives a BUSY Bar front LED matrix (72x16) with hopping frogs an
 
 ## Files
 
-- `apps/common/`: backends, pixelart, input WebSocket pump
-- `apps/wednesday_frogs/sprites.py`, `animation.py`, `main.py`
+- `busybar/common/`: backends, pixelart, input WebSocket pump
+- `busybar/wednesday_frogs/sprites.py`, `animation.py`, `main.py`
 
 ## Out of scope here
 
-Cursor Token Pet is a separate app that reuses `apps/common`.
+Cursor Token Pet is a separate app that reuses `busybar/common`.

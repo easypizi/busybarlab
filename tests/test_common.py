@@ -2,10 +2,10 @@
 
 import errno
 
-from apps.common.input_events import InputButton, parse_input_updates
-from apps.common.pixelart import ascii_to_png_bytes
-from apps.common import preflight
-from apps.common.preflight import (
+from busybar.common.input_events import InputButton, parse_input_updates
+from busybar.common.pixelart import ascii_to_png_bytes
+from busybar.common import preflight
+from busybar.common.preflight import (
     detect_terminal_app,
     format_unreachable_help,
     is_host_unreachable,

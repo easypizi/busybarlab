@@ -1,0 +1,1367 @@
+### Hardware Page Event Handling
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/README.md
+
+This code describes how hardware events like scroll wheel and PTT clicks trigger LED animations and how accelerometer data is displayed in real-time. No specific setup is required beyond the hardware event listeners.
+
+```javascript
+// Scroll wheel events trigger LED blinks
+// UP scroll → UP LED blinks green
+// DOWN scroll → DOWN LED blinks green
+// PTT click → PTT LED blinks green
+
+// Accelerometer shows real-time values
+// X: -1.00 to 1.00 (left/right tilt)
+// Y: -1.00 to 1.00 (forward/back tilt)
+// Z: -1.00 to 1.00 (face up/down)
+```
+
+--------------------------------
+
+### R1 Voice Output with LLM
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/README.md
+
+This example shows how to send a message to the LLM and have it spoken through the R1 speaker by setting `wantsR1Response` to true. For silent processing, set `wantsR1Response` to false.
+
+```javascript
+// Speak with R1 voice output
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: "Hello, this is a test message",
+  useLLM: true,
+  wantsR1Response: true    // Speaks through R1 speaker
+}));
+```
+
+```javascript
+// Silent processing (no voice)
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: "Process this silently",
+  useLLM: true,
+  wantsR1Response: false
+}));
+```
+
+--------------------------------
+
+### Optimized CSS for R1 Screen
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Example of CSS for the R1 screen, focusing on touch-friendly sizes, dark theme, and hardware-accelerated animations. Use touch-friendly button sizes (min 44x44px) and a dark theme with high contrast for small screens.
+
+```css
+.led-indicator.blink {
+  transform: scale(1.2);
+  opacity: 1;
+  background-color: #00ff00;
+  transition: all 0.15s ease-out;
+}
+```
+
+--------------------------------
+
+### Handle Hardware Button Events
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Listen for hardware button events from the R1's scroll wheel and PTT button using native window event listeners. Includes examples for scroll direction, single click, and long press events.
+
+```javascript
+// Scroll wheel - up direction
+window.addEventListener('scrollUp', () => {
+  console.log('Scroll wheel up');
+  // Example: Navigate to previous item
+  currentIndex = Math.max(0, currentIndex - 1);
+  updateDisplay();
+});
+
+// Scroll wheel - down direction
+window.addEventListener('scrollDown', () => {
+  console.log('Scroll wheel down');
+  // Example: Navigate to next item
+  currentIndex = Math.min(items.length - 1, currentIndex + 1);
+  updateDisplay();
+});
+
+// PTT button - single click
+window.addEventListener('sideClick', () => {
+  console.log('Side button clicked');
+  // Example: Toggle selection or confirm action
+  toggleSelection();
+});
+// Note: Double click triggers two sideClick events ~50ms apart
+
+// PTT button - long press start
+window.addEventListener('longPressStart', () => {
+  console.log('Long press started');
+  // Example: Start voice recording
+  startRecording();
+});
+
+// PTT button - long press end
+window.addEventListener('longPressEnd', () => {
+  console.log('Long press ended');
+  // Example: Stop voice recording and process
+  stopRecording();
+  processVoiceInput();
+});
+
+// Complete example: LED blink feedback on hardware events
+function blinkLED(ledId) {
+  const led = document.getElementById(ledId);
+  led.classList.add('blink');
+  setTimeout(() => led.classList.remove('blink'), 500);
+}
+
+window.addEventListener('scrollUp', () => blinkLED('upLed'));
+window.addEventListener('scrollDown', () => blinkLED('downLed'));
+window.addEventListener('sideClick', () => blinkLED('pttLed'));
+```
+
+--------------------------------
+
+### Access Accelerometer Data with AccelerometerHandler
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Utilize AccelerometerHandler to get real-time motion sensor data. It provides normalized tilt values (-1 to 1) and raw acceleration. Sampling frequency is configurable.
+
+```javascript
+// Accelerometer API is injected as window.creationSensors
+
+// Check if accelerometer is available on device
+const isAvailable = await window.creationSensors.accelerometer.isAvailable();
+if (!isAvailable) {
+  console.log('Accelerometer not available on this device');
+  return;
+}
+
+// Start receiving accelerometer data at 60Hz (default)
+window.creationSensors.accelerometer.start((data) => {
+  console.log('Accelerometer data:', data);
+  // Normalized tilt values (-1 to 1):
+  // tiltX: positive = tilt right, negative = tilt left
+  // tiltY: positive = tilt forward, negative = tilt back
+  // tiltZ: positive = facing up, negative = facing down
+
+  document.getElementById('tiltX').textContent = data.tiltX.toFixed(2);
+  document.getElementById('tiltY').textContent = data.tiltY.toFixed(2);
+  document.getElementById('tiltZ').textContent = data.tiltZ.toFixed(2);
+
+  // Raw acceleration values (m/s²)
+  document.getElementById('rawX').textContent = data.rawX.toFixed(2);
+  document.getElementById('rawY').textContent = data.rawY.toFixed(2);
+  document.getElementById('rawZ').textContent = data.rawZ.toFixed(2);
+}, { frequency: 60 });  // Optional: 10, 30, 60, or 100 Hz
+
+// Stop receiving accelerometer data
+window.creationSensors.accelerometer.stop();
+```
+
+--------------------------------
+
+### Handle Side Button Long Press
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Detect the start and end of a long press on the side button. This is useful for actions requiring sustained input.
+
+```javascript
+// Long press start
+window.addEventListener("longPressStart", () => {
+  console.log("Side button long press started");
+});
+```
+
+```javascript
+// Long press end  
+window.addEventListener("longPressEnd", () => {
+  console.log("Side button long press ended");
+});
+```
+
+--------------------------------
+
+### Send Basic Message to Server
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Use PluginMessageHandler.postMessage to send a simple string message to the R1 server. This does not involve LLM processing.
+
+```javascript
+// Basic message to server (no LLM processing)
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: "Hello from my r1 creation"
+}));
+```
+
+--------------------------------
+
+### Save and Load Data with Creation Storage
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/README.md
+
+Use `setItem` to save data to persistent storage and `getItem` to retrieve it. Data is expected to be JSON stringified and base64 encoded.
+
+```javascript
+await window.creationStorage.plain.setItem(
+  'app_settings',
+  btoa(JSON.stringify(settings))
+);
+```
+
+```javascript
+const stored = await window.creationStorage.plain.getItem('app_settings');
+const settings = JSON.parse(atob(stored));
+```
+
+--------------------------------
+
+### Register Hardware Event Listeners
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/README.md
+
+Listen for hardware events such as scroll, button presses, and accelerometer data. Ensure the necessary event listeners are added.
+
+```javascript
+// Scroll wheel
+window.addEventListener('scrollUp', handleScrollUp);
+window.addEventListener('scrollDown', handleScrollDown);
+```
+
+```javascript
+// Side button (PTT)
+window.addEventListener('sideClick', handleClick);
+window.addEventListener('longPressStart', handleLongPressStart);
+window.addEventListener('longPressEnd', handleLongPressEnd);
+```
+
+```javascript
+// Accelerometer
+window.creationSensors.accelerometer.start((data) => {
+  // data = { x: 0.1, y: -0.2, z: 0.98 }
+}, { frequency: 60 });
+```
+
+--------------------------------
+
+### Sending and Receiving Plugin Messages
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/README.md
+
+This snippet illustrates the standard flow for sending messages from the plugin using `PluginMessageHandler.postMessage` and receiving responses in the `window.onPluginMessage` handler. It shows how to differentiate between structured data in `data.data` and text messages in `data.message`.
+
+```javascript
+// Plugin sends message
+PluginMessageHandler.postMessage(JSON.stringify(payload));
+
+// App receives response
+window.onPluginMessage = function(data) {
+  // Response can be in data.data (JSON string) or data.message (text)
+  if (data.data) {
+    const parsed = JSON.parse(data.data);
+    // Handle structured data
+  }
+  if (data.message) {
+    // Handle text message
+  }
+};
+```
+
+--------------------------------
+
+### JSON Object Configuration for QR Code
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/qr/final/index_fixed.html
+
+Use this JSON structure to configure the content and appearance of your QR code. Ensure all fields are correctly populated for desired output.
+
+```json
+{
+  "title": "",
+  "url": "",
+  "description": "",
+  "iconUrl": "",
+  "themeColor": "#FE5000"
+}
+```
+
+--------------------------------
+
+### Simulate Touch Events
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Use TouchEventHandler.postMessage to simulate various touch events like tap, down, move, up, and cancel at specific coordinates. This is useful for automation and accessibility.
+
+```javascript
+// Simulate a tap at specific coordinates
+TouchEventHandler.postMessage(JSON.stringify({
+  type: "tap",
+  x: 100,
+  y: 200
+}));
+```
+
+```javascript
+// Simulate touch down event
+TouchEventHandler.postMessage(JSON.stringify({
+  type: "down",
+  x: 100,
+  y: 200
+}));
+```
+
+```javascript
+// Simulate touch move event (drag)
+TouchEventHandler.postMessage(JSON.stringify({
+  type: "move",
+  x: 120,
+  y: 220
+}));
+```
+
+```javascript
+// Simulate touch up event (release)
+TouchEventHandler.postMessage(JSON.stringify({
+  type: "up",
+  x: 120,
+  y: 220
+}));
+```
+
+```javascript
+// Simulate touch cancel
+TouchEventHandler.postMessage(JSON.stringify({
+  type: "cancel",
+  x: 100,
+  y: 200
+}));
+```
+
+--------------------------------
+
+### CreationStorageHandler API
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Provides persistent storage for plugins with both plain (unencrypted) and secure (hardware-encrypted) options. Data must be Base64 encoded.
+
+```APIDOC
+## CreationStorageHandler API
+
+### Description
+Persistent storage API for plugins with both plain and secure storage options. All data must be Base64 encoded before storage. Storage is isolated per plugin ID. Secure storage requires Android M or higher.
+
+### Methods
+- `window.creationStorage.plain.setItem(key, value)`: Stores a key-value pair in plain storage.
+- `window.creationStorage.plain.getItem(key)`: Retrieves the value for a given key from plain storage.
+- `window.creationStorage.plain.removeItem(key)`: Removes a key-value pair from plain storage.
+- `window.creationStorage.plain.clear()`: Clears all data from plain storage.
+- `window.creationStorage.secure.setItem(key, value)`: Stores a key-value pair in secure storage.
+- `window.creationStorage.secure.getItem(key)`: Retrieves the value for a given key from secure storage.
+- `window.creationStorage.secure.removeItem(key)`: Removes a key-value pair from secure storage.
+- `window.creationStorage.secure.clear()`: Clears all data from secure storage.
+
+### Parameters
+#### Path Parameters
+- **key** (string) - Required - The key for the storage item.
+- **value** (string) - Required - The Base64 encoded value to store.
+
+### Request Example (Plain Storage)
+```javascript
+// Store user preferences
+await window.creationStorage.plain.setItem('user_prefs', btoa(JSON.stringify({theme: 'dark'})));
+
+// Retrieve user preferences
+const prefs = JSON.parse(atob(await window.creationStorage.plain.getItem('user_prefs')));
+
+// Remove user preferences
+await window.creationStorage.plain.removeItem('user_prefs');
+
+// Clear all plain storage
+await window.creationStorage.plain.clear();
+```
+
+### Request Example (Secure Storage)
+```javascript
+// Store API key
+await window.creationStorage.secure.setItem('api_key', btoa('secret_key_123'));
+
+// Retrieve API key
+const apiKey = atob(await window.creationStorage.secure.getItem('api_key'));
+
+// Remove API key
+await window.creationStorage.secure.removeItem('api_key');
+
+// Clear all secure storage
+await window.creationStorage.secure.clear();
+```
+
+### Response
+- Returns the retrieved value (string) or `null` if the item doesn't exist.
+- `clear()` methods do not return a value.
+```
+
+--------------------------------
+
+### window.onPluginMessage - Receive Server Responses
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Implement this callback function to receive messages and LLM responses from the server. Responses may contain structured JSON data or plain text.
+
+```APIDOC
+## window.onPluginMessage - Receive Server Responses
+
+### Description
+Implement this callback function to receive messages and LLM responses from the server. Responses may contain structured JSON data in the `data` field or plain text in the `message` field.
+
+### Method
+Callback function
+
+### Endpoint
+`window.onPluginMessage`
+
+### Parameters
+#### Request Body
+- **data** (object) - Contains the response from the server.
+  - **message** (string) - A description of the message.
+  - **pluginId** (string) - The ID of the target plugin.
+  - **data** (string) - Optional. A JSON string containing response data.
+
+### Request Example
+```javascript
+window.onPluginMessage = function(data) {
+  console.log("Received message from server:", data);
+  // data contains:
+  // - message: string description
+  // - pluginId: the target plugin ID
+  // - data: (optional) JSON string containing response data
+
+  // Parse structured JSON response
+  if (data.data) {
+    try {
+      const parsed = JSON.parse(data.data);
+
+      // Handle cat facts array
+      if (parsed.facts && Array.isArray(parsed.facts)) {
+        parsed.facts.forEach((fact, index) => {
+          console.log(`Fact ${index + 1}: ${fact}`);
+        });
+      }
+
+      // Handle paint color response
+      if (parsed.paint) {
+        document.getElementById('app').style.borderColor = parsed.paint;
+        console.log(`Border painted: ${parsed.paint}`);
+      }
+
+      // Handle custom actions
+      if (parsed.action === "updateContent") {
+        document.getElementById("content").innerHTML = parsed.content;
+      }
+    } catch (e) {
+      // data.data is not valid JSON, use as plain string
+      console.log("Plain string data:", data.data);
+    }
+  }
+
+  // Handle plain text message
+  if (data.message) {
+    console.log("Message:", data.message);
+  }
+};
+```
+
+### Response
+N/A (This is a callback function for receiving data)
+
+### Response Example
+N/A
+```
+
+--------------------------------
+
+### Receive and Process Server Responses
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Implement the window.onPluginMessage callback to handle incoming messages and LLM responses from the server. Parse structured JSON data or handle plain text messages.
+
+```javascript
+window.onPluginMessage = function(data) {
+  console.log("Received message from server:", data);
+  // data contains:
+  // - message: string description
+  // - pluginId: the target plugin ID
+  // - data: (optional) JSON string containing response data
+
+  // Parse structured JSON response
+  if (data.data) {
+    try {
+      const parsed = JSON.parse(data.data);
+
+      // Handle cat facts array
+      if (parsed.facts && Array.isArray(parsed.facts)) {
+        parsed.facts.forEach((fact, index) => {
+          console.log(`Fact ${index + 1}: ${fact}`);
+        });
+      }
+
+      // Handle paint color response
+      if (parsed.paint) {
+        document.getElementById('app').style.borderColor = parsed.paint;
+        console.log(`Border painted: ${parsed.paint}`);
+      }
+
+      // Handle custom actions
+      if (parsed.action === "updateContent") {
+        document.getElementById("content").innerHTML = parsed.content;
+      }
+    } catch (e) {
+      // data.data is not valid JSON, use as plain string
+      console.log("Plain string data:", data.data);
+    }
+  }
+
+  // Handle plain text message
+  if (data.message) {
+    console.log("Message:", data.message);
+  }
+};
+```
+
+--------------------------------
+
+### Simulate Touch Events
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Simulate various touch events like 'down', 'up', 'move', or 'cancel' using TouchEventHandler.
+
+```javascript
+// Simulate other touch events
+TouchEventHandler.postMessage(JSON.stringify({
+  type: "down",  // or "up", "move", "cancel"
+  x: 100,
+  y: 200
+}));
+```
+
+--------------------------------
+
+### LLM Response Spoken and Logged to Journal
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Combine spoken output and journal logging by setting 'useLLM: true', 'wantsR1Response: true', and 'wantsJournalEntry: true'.
+
+```javascript
+// Speak and save interaction to journal
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: "Hello, tell me what you know about me.",
+  useLLM: true,
+  wantsR1Response: true,
+  wantsJournalEntry: true  // Logs to user's journal
+}));
+```
+
+--------------------------------
+
+### TouchEventHandler API
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Allows creations to simulate touch events on the device, useful for automation or accessibility.
+
+```APIDOC
+## TouchEventHandler API
+
+### Description
+Simulate touch events on the device. Useful for automation or accessibility.
+
+### Method
+`TouchEventHandler.postMessage(message)`
+
+### Parameters
+#### Request Body
+- **message** (string) - Required - A JSON string representing the touch event.
+  - **type** (string) - Required - The type of touch event ('tap', 'down', 'up', 'move', 'cancel').
+  - **x** (number) - Required - The x-coordinate of the touch event.
+  - **y** (number) - Required - The y-coordinate of the touch event.
+
+### Request Example (Tap)
+```json
+{
+  "type": "tap",
+  "x": 100,
+  "y": 200
+}
+```
+
+### Request Example (Down Event)
+```json
+{
+  "type": "down",
+  "x": 100,
+  "y": 200
+}
+```
+```
+
+--------------------------------
+
+### Request Dynamic Styling Data from LLM
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Request dynamic styling information, such as hex color codes, from the LLM by specifying the desired JSON output format in the message.
+
+```javascript
+// Request dynamic styling data from LLM
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: 'Give me the hex color code for red. Return ONLY valid JSON in this exact format: {"paint":"#hexcode"}',
+  useLLM: true
+}));
+// Expected response: {"paint": "#ff0000"}
+```
+
+--------------------------------
+
+### Send Structured Message to Server
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Use PluginMessageHandler to send structured messages to the server. The pluginId is automatically managed.
+
+```javascript
+// Send a structured message to the server
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: "Hello from my r1 creation",
+  }
+));
+```
+
+--------------------------------
+
+### PluginMessageHandler API
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Allows creations to send structured messages to the server and interact with the LLM. Supports sending plain messages, requesting LLM responses with various options, and receiving LLM output.
+
+```APIDOC
+## PluginMessageHandler API
+
+### Description
+Send structured plugin messages to the server. The `pluginId` is automatically injected/overridden by the system to prevent spoofing.
+
+### Method
+`PluginMessageHandler.postMessage(message)`
+
+### Parameters
+#### Request Body
+- **message** (string) - Required - A JSON string representing the message to send.
+- **useLLM** (boolean) - Optional - If true, requests an LLM generated response. Defaults to false.
+- **wantsR1Response** (boolean) - Optional - If `useLLM` is true, and this is true, the LLM will speak its response through the r1 device speaker. Defaults to false.
+- **wantsJournalEntry** (boolean) - Optional - If `useLLM` is true, and this is true, the interaction will be logged to the journal. Defaults to false.
+
+### Request Example
+```json
+{
+  "message": "Hello from my r1 creation"
+}
+```
+
+### Request Example with LLM Interaction
+```json
+{
+  "message": "Hello, tell me what you know about me. Return only a JSON message formatted as {'facts': ['you like...','...']}",
+  "useLLM": true
+}
+```
+
+### Request Example with LLM and R1 Speaker
+```json
+{
+  "message": "Hello, tell me what you know about me.",
+  "useLLM": true,
+  "wantsR1Response": true
+}
+```
+
+### Request Example with LLM, R1 Speaker, and Journal Entry
+```json
+{
+  "message": "Hello, tell me what you know about me.",
+  "useLLM": true,
+  "wantsR1Response": true,
+  "wantsJournalEntry": true
+}
+```
+
+### Response
+LLM responses are received via `window.onPluginMessage()`. The response data will be in `pluginMessage.data`.
+```
+
+--------------------------------
+
+### Simulate Tap Event
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Use TouchEventHandler to simulate a tap at specified coordinates on the device screen.
+
+```javascript
+// Simulate a tap at coordinates
+TouchEventHandler.postMessage(JSON.stringify({
+  type: "tap",
+  x: 100,
+  y: 200
+}));
+```
+
+--------------------------------
+
+### Close WebView to Exit Plugin
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Use closeWebView.postMessage to close the current WebView and return to the R1 home screen. This is useful for quit buttons or ending plugin sessions.
+
+```javascript
+// Close the plugin and return to home screen
+closeWebView.postMessage("");
+
+// Example: Quit button implementation
+document.getElementById('quitBtn').addEventListener('click', () => {
+  closeWebView.postMessage("");
+});
+```
+
+--------------------------------
+
+### Detect R1 Plugin Environment
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Checks if the code is running within the R1 plugin environment or in a standard browser. Initializes R1-specific features or mock features accordingly.
+
+```javascript
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof PluginMessageHandler !== 'undefined') {
+    console.log('Running as R1 Creation');
+    initializeR1Features();
+  } else {
+    console.log('Running in browser mode');
+    initializeMockFeatures();
+  }
+});
+```
+
+--------------------------------
+
+### closeWebView API
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Provides a way to close the current WebView and return to the home screen.
+
+```APIDOC
+## closeWebView API
+
+### Description
+Close the current WebView and return to the home screen. This is useful if the webapp has a quit button.
+
+### Method
+`closeWebView.postMessage(message)`
+
+### Parameters
+#### Request Body
+- **message** (string) - Required - An empty string is expected.
+
+### Request Example
+```javascript
+closeWebView.postMessage("");
+```
+```
+
+--------------------------------
+
+### Request LLM JSON Response
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Send a message to the server with 'useLLM: true' to request a response processed by the LLM. Specify the desired JSON format in the message.
+
+```javascript
+// Request LLM-generated JSON response
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: 'Tell me 5 facts about cats. Respond ONLY with valid JSON in this exact format: {"facts":["fact1","fact2","fact3","fact4","fact5"]}',
+  useLLM: true
+}));
+```
+
+--------------------------------
+
+### Receive Messages from Server
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Implement the `onPluginMessage` function to process messages sent from the server. It handles parsing JSON data and executing actions based on message content.
+
+```javascript
+window.onPluginMessage = function(data) {
+  console.log("Received message from server:", data);
+  // data contains the entire pluginMessage object including:
+  // - message: string description
+  // - pluginId: the target plugin ID
+  // - data: (optional) json string containing response data
+  
+  // Parse data.data if it contains valid JSON
+  if (data.data) {
+    try {
+      const parsedData = JSON.parse(data.data);
+      console.log("Parsed data:", parsedData);
+      // Use the parsed data (e.g., LLM responses)
+      
+      // Handle specific actions from parsed data
+      if (parsedData.action === "updateContent") {
+        document.getElementById("content").innerHTML = parsedData.content;
+      }
+    } catch (e) {
+      // data.data is not valid JSON, use as plain string
+      console.log("Plain string data:", data.data);
+    }
+  }
+};
+```
+
+--------------------------------
+
+### PluginMessageHandler - Send Messages to Server
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+The primary channel for communicating with the R1 server. Use this to send structured messages, request LLM-generated responses, enable text-to-speech output, and log interactions.
+
+```APIDOC
+## PluginMessageHandler - Send Messages to Server
+
+### Description
+The primary channel for communicating with the R1 server. Use this to send structured messages, request LLM-generated responses, enable text-to-speech output through the R1 speaker, and optionally log interactions to the user's journal.
+
+### Method
+POST (simulated via `postMessage`)
+
+### Endpoint
+`PluginMessageHandler`
+
+### Parameters
+#### Request Body
+- **message** (string) - Required - The content of the message to send.
+- **useLLM** (boolean) - Optional - Whether to process the message using the LLM.
+- **wantsR1Response** (boolean) - Optional - Whether to enable text-to-speech output through the R1 speaker.
+- **wantsJournalEntry** (boolean) - Optional - Whether to log the interaction to the user's journal.
+
+### Request Example
+```json
+{
+  "message": "Hello from my r1 creation"
+}
+```
+
+```json
+{
+  "message": "Tell me 5 facts about cats. Respond ONLY with valid JSON in this exact format: {\"facts\":[\"fact1\",\"fact2\",\"fact3\",\"fact4\",\"fact5\"]}",
+  "useLLM": true
+}
+```
+
+```json
+{
+  "message": "Hello, tell me what you know about me.",
+  "useLLM": true,
+  "wantsR1Response": true
+}
+```
+
+```json
+{
+  "message": "Hello, tell me what you know about me.",
+  "useLLM": true,
+  "wantsR1Response": true,
+  "wantsJournalEntry": true
+}
+```
+
+```json
+{
+  "message": "Give me the hex color code for red. Return ONLY valid JSON in this exact format: {\"paint\":\"#hexcode\"}",
+  "useLLM": true
+}
+```
+
+### Response
+#### Success Response (200)
+Responses are handled via the `window.onPluginMessage` callback.
+
+#### Response Example
+```json
+{
+  "message": "Received message from server: ...",
+  "pluginId": "your-plugin-id",
+  "data": "{\"facts\":[\"fact1\",\"fact2\",\"fact3\",\"fact4\",\"fact5\"]}" 
+}
+```
+```
+
+--------------------------------
+
+### TouchEventHandler - Simulate Touch Events
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Simulate touch events on the device for automation or accessibility purposes. Supports tap, down, up, move, and cancel event types.
+
+```APIDOC
+## TouchEventHandler - Simulate Touch Events
+
+### Description
+Simulate touch events on the device for automation or accessibility purposes. Supports tap, down, up, move, and cancel event types.
+
+### Method
+POST (simulated via `postMessage`)
+
+### Endpoint
+`TouchEventHandler`
+
+### Parameters
+#### Request Body
+- **type** (string) - Required - The type of touch event (e.g., "tap", "down", "up", "move", "cancel").
+- **x** (integer) - Required - The x-coordinate of the touch event.
+- **y** (integer) - Required - The y-coordinate of the touch event.
+
+### Request Example
+```json
+{
+  "type": "tap",
+  "x": 100,
+  "y": 200
+}
+```
+
+```json
+{
+  "type": "down",
+  "x": 100,
+  "y": 200
+}
+```
+
+```json
+{
+  "type": "move",
+  "x": 120,
+  "y": 220
+}
+```
+
+```json
+{
+  "type": "up",
+  "x": 120,
+  "y": 220
+}
+```
+
+```json
+{
+  "type": "cancel",
+  "x": 100,
+  "y": 200
+}
+```
+
+### Response
+N/A (This handler sends commands to the device)
+
+### Response Example
+N/A
+```
+
+--------------------------------
+
+### AccelerometerHandler API
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Provides access to real-time accelerometer data from the device, including raw values and tilt information.
+
+```APIDOC
+## AccelerometerHandler API
+
+### Description
+Access real-time accelerometer data from the device. Provides raw values and a simplified tilt measurement.
+
+### Methods
+- `window.creationSensors.accelerometer.isAvailable()`: Checks if the accelerometer is available.
+- `window.creationSensors.accelerometer.start(callback, options)`: Starts receiving accelerometer data.
+- `window.creationSensors.accelerometer.stop()`: Stops receiving accelerometer data.
+
+### Parameters
+#### `start` method parameters
+- **callback** (function) - Required - A function to be called with the accelerometer data.
+  - **data** (object) - The accelerometer data object containing `x`, `y`, and `z` properties.
+    - **x** (number) - Normalized value (-1 to 1) representing left/right tilt.
+    - **y** (number) - Normalized value (-1 to 1) representing forward/backward tilt.
+    - **z** (number) - Normalized value (-1 to 1) representing up/down orientation.
+- **options** (object) - Optional - Configuration options for the accelerometer.
+  - **frequency** (number) - Optional - The desired sampling frequency in Hz. Defaults to system default.
+
+### Request Example (Check Availability)
+```javascript
+const isAvailable = await window.creationSensors.accelerometer.isAvailable();
+```
+
+### Request Example (Start Receiving Data)
+```javascript
+window.creationSensors.accelerometer.start((data) => {
+  console.log('Accelerometer data:', data);
+  // data = { x: 0.1, y: -0.2, z: 0.98 }
+}, { frequency: 60 }); // Optional: specify sampling frequency in Hz
+```
+
+### Request Example (Stop Receiving Data)
+```javascript
+window.creationSensors.accelerometer.stop();
+```
+```
+
+--------------------------------
+
+### closeWebView - Exit Plugin
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Close the current WebView and return to the R1 home screen. Useful for implementing quit buttons or ending plugin sessions.
+
+```APIDOC
+## closeWebView - Exit Plugin
+
+### Description
+Close the current WebView and return to the R1 home screen. Useful for implementing quit buttons or ending plugin sessions.
+
+### Method
+POST (simulated via `postMessage`)
+
+### Endpoint
+`closeWebView`
+
+### Parameters
+#### Request Body
+- **(empty)** - The `postMessage` method expects an empty string or no arguments.
+
+### Request Example
+```javascript
+// Close the plugin and return to home screen
+closeWebView.postMessage("");
+
+// Example: Quit button implementation
+document.getElementById('quitBtn').addEventListener('click', () => {
+  closeWebView.postMessage("");
+});
+```
+
+### Response
+N/A (This action closes the WebView)
+
+### Response Example
+N/A
+```
+
+--------------------------------
+
+### Manage Persistent Storage with CreationStorageHandler
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+Use CreationStorageHandler for storing data locally. Plain storage is unencrypted, while secure storage is hardware-encrypted (Android M+). All data must be Base64 encoded before storage. Storage is isolated per plugin ID.
+
+```javascript
+// Storage API is injected as window.creationStorage
+
+// Plain storage (unencrypted) - for general preferences
+await window.creationStorage.plain.setItem(
+  'user_prefs',
+  btoa(JSON.stringify({theme: 'dark', volume: 80}))
+);
+
+// Retrieve from plain storage
+const storedPrefs = await window.creationStorage.plain.getItem('user_prefs');
+if (storedPrefs) {
+  const prefs = JSON.parse(atob(storedPrefs));
+  console.log('Theme:', prefs.theme);  // Output: dark
+}
+
+// Remove specific item from plain storage
+await window.creationStorage.plain.removeItem('user_prefs');
+
+// Clear all plain storage for this plugin
+await window.creationStorage.plain.clear();
+
+// Secure storage (hardware-encrypted, Android M+) - for sensitive data
+await window.creationStorage.secure.setItem(
+  'api_key',
+  btoa('secret_key_123')
+);
+
+// Retrieve from secure storage
+const apiKey = atob(await window.creationStorage.secure.getItem('api_key'));
+console.log('API Key:', apiKey);  // Output: secret_key_123
+
+// Remove from secure storage
+await window.creationStorage.secure.removeItem('api_key');
+
+// Clear all secure storage for this plugin
+await window.creationStorage.secure.clear();
+
+// Note: Returns null if item doesn't exist
+const missing = await window.creationStorage.plain.getItem('nonexistent');
+console.log(missing);  // Output: null
+```
+
+--------------------------------
+
+### Plain Storage Operations
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Manage unencrypted data using CreationStorageHandler's plain storage API. Data must be Base64 encoded before storage.
+
+```javascript
+// Plain storage (unencrypted)
+await window.creationStorage.plain.setItem('user_prefs', btoa(JSON.stringify({theme: 'dark'})));
+const prefs = JSON.parse(atob(await window.creationStorage.plain.getItem('user_prefs')));
+await window.creationStorage.plain.removeItem('user_prefs');
+await window.creationStorage.plain.clear();
+```
+
+--------------------------------
+
+### Accelerometer Data Access
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Access real-time accelerometer data using the AccelerometerHandler. Specify sampling frequency and stop receiving data when done.
+
+```javascript
+// Accelerometer API is injected as window.creationSensors
+
+// Check if accelerometer is available
+const isAvailable = await window.creationSensors.accelerometer.isAvailable();
+
+// Start receiving accelerometer data
+window.creationSensors.accelerometer.start((data) => {
+  console.log('Accelerometer data:', data);
+  // data = { x: 0.1, y: -0.2, z: 0.98 }
+  // Values are normalized (-1 to 1):
+  // x: positive = tilt right, negative = tilt left
+  // y: positive = tilt forward, negative = tilt back
+  // z: positive = facing up, negative = facing down
+}, { frequency: 60 }); // Optional: specify sampling frequency in Hz
+
+// Stop receiving accelerometer data
+window.creationSensors.accelerometer.stop();
+```
+
+--------------------------------
+
+### Close Plugin WebView
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Use closeWebView to close the current WebView and return to the home screen. Useful for quit buttons.
+
+```javascript
+// Close the plugin
+closeWebView.postMessage("");
+```
+
+--------------------------------
+
+### LLM JSON Response Only
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Request an LLM-generated JSON response. The response will be received via window.onPluginMessage() and will be in pluginMessage.data.
+
+```javascript
+// Have the LLM generate a JSON response. You will receive it via window.onPluginMessage().
+// The JSON response will be in pluginMessage.data
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: "Hello, tell me what you know about me. Return only a JSON message formatted as {'facts': ['you like...','...']}",
+  useLLM: true
+  }
+
+```
+
+--------------------------------
+
+### Handle Scroll Wheel Events
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Respond to scroll wheel movements, differentiating between scrolling up and down.
+
+```javascript
+// Scroll up
+window.addEventListener("scrollUp", () => {
+  console.log("Scroll wheel up");
+});
+```
+
+```javascript
+// Scroll down
+window.addEventListener("scrollDown", () => {
+  console.log("Scroll wheel down");
+});
+```
+
+--------------------------------
+
+### Requesting Paint Color Hex Code via LLM
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/README.md
+
+This snippet demonstrates how to request a hex color code for a specific color (e.g., red) from the LLM. The response should be a JSON object containing the paint color, which can then be used to dynamically change the app's border color.
+
+```javascript
+// Paint Color Button
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: 'Give me the hex color code for red. Return ONLY valid JSON in this exact format: {"paint":"#hexcode"}',
+  useLLM: true
+}));
+```
+
+```json
+{"paint": "#ff0000"}
+```
+
+--------------------------------
+
+### Requesting Cat Facts via LLM
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/README.md
+
+Use this snippet to request a JSON array of cat facts from the LLM. Ensure the response is handled correctly, expecting a specific JSON format for the facts.
+
+```javascript
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: 'Tell me 5 facts about cats. Respond ONLY with valid JSON in this exact format: {"facts":["fact1","fact2","fact3","fact4","fact5"]}',
+  useLLM: true
+}));
+```
+
+```json
+{
+  "facts": [
+    "Cats have 32 muscles in each ear",
+    "A group of cats is called a clowder",
+    "Cats sleep for 13-14 hours a day",
+    "A cat's nose print is unique",
+    "Cats can rotate their ears 180 degrees"
+  ]
+}
+```
+
+--------------------------------
+
+### Secure Storage Operations
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Manage hardware-encrypted data using CreationStorageHandler's secure storage API. Requires Android M+. Data must be Base64 encoded.
+
+```javascript
+// Secure storage (hardware-encrypted, Android M+)
+await window.creationStorage.secure.setItem('api_key', btoa('secret_key_123'));
+const apiKey = atob(await window.creationStorage.secure.getItem('api_key'));
+await window.creationStorage.secure.removeItem('api_key');
+await window.creationStorage.secure.clear();
+```
+
+--------------------------------
+
+### LLM JSON Response with Journal Entry
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Request an LLM-generated JSON response and have it spoken by the R1, while also logging the interaction to the journal.
+
+```javascript
+// Have the llm use the r1 speaker to tell you its memories of you
+// Saves the interaction to the journal
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: "Hello, tell me what you know about me.",
+  useLLM: true,
+  wantsR1Response: true,
+  wantsJournalEntry: true
+  }
+})
+```
+
+--------------------------------
+
+### Handle Side Button Clicks
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Listen for single clicks on the side button. Double clicks trigger two separate single click events.
+
+```javascript
+// Single click
+window.addEventListener("sideClick", () => {
+  console.log("Side button clicked");
+});
+```
+
+--------------------------------
+
+### LLM Response Spoken Through R1 Speaker
+
+Source: https://context7.com/rabbit-hmi-oss/creations-sdk/llms.txt
+
+To have the LLM's response spoken through the R1 device speaker, set 'useLLM: true' and 'wantsR1Response: true' in the message.
+
+```javascript
+// Have the LLM speak through R1 device speaker
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: "Hello, tell me what you know about me.",
+  useLLM: true,
+  wantsR1Response: true  // Speaks through R1 speaker
+}));
+```
+
+--------------------------------
+
+### LLM JSON Response with R1 Speaker
+
+Source: https://github.com/rabbit-hmi-oss/creations-sdk/blob/main/plugin-demo/reference/creation-triggers.md
+
+Request an LLM-generated JSON response and have the R1 speak it. This interaction is not logged to the journal.
+
+```javascript
+// Have the llm use the r1 speaker to tell you its memories of you
+// Does NOT save the interaction to the journal
+PluginMessageHandler.postMessage(JSON.stringify({
+  message: "Hello, tell me what you know about me.",
+  useLLM: true,
+  wantsR1Response: true
+  }
+))
+```
+
+=== COMPLETE CONTENT === This response contains all available snippets from this library. No additional content exists. Do not make further requests.

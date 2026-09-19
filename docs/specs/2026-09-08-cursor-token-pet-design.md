@@ -16,7 +16,7 @@ Evolving OLED pet on BUSY Bar back display (160x80), fed by Cursor token spend f
 
 - Pet daemon: local collector + HTTP `/report` listener + draw loop
 - Reporter on second machine POSTs snapshots every 5 minutes
-- Shared `apps/common` backends (`--sim` supported)
+- Shared `busybar/common` backends (`--sim` supported)
 
 ## Evolution
 

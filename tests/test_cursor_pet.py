@@ -5,17 +5,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from apps.cursor_pet.achievements import evaluate_achievements
-from apps.cursor_pet.collector import UsageSnapshot, compute_delta
-from apps.cursor_pet.evolution import (
+from busybar.cursor_pet.achievements import evaluate_achievements
+from busybar.cursor_pet.collector import UsageSnapshot, compute_delta
+from busybar.cursor_pet.evolution import (
     branch_from_alignment,
     compute_alignment,
     level_from_xp,
     pick_trait,
     xp_to_next,
 )
-from apps.cursor_pet.genesis import roll_genesis
-from apps.cursor_pet.state import PetState, load_or_create, reroll, save_state
+from busybar.cursor_pet.genesis import roll_genesis
+from busybar.cursor_pet.state import PetState, load_or_create, reroll, save_state
 
 
 def test_genesis_deterministic() -> None:

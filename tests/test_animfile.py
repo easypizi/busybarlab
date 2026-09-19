@@ -1,7 +1,7 @@
 """Tests for bicycle0 encoder and frog anim bake."""
 
-from apps.common.animfile import decode_check, encode_anim, rle_compress, rle_decompress
-from apps.wednesday_frogs.bake import BakeConfig, bake_anim, render_frame
+from busybar.common.animfile import decode_check, encode_anim, rle_compress, rle_decompress
+from busybar.wednesday_frogs.bake import BakeConfig, bake_anim, render_frame
 
 
 def test_rle_roundtrip() -> None:

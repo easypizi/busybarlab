@@ -1,0 +1,22 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 240px;
+  height: 282px;
+  overflow: hidden;
+  background: #111;
+  color: #f3f3f3;
+  font: 13px/1.3 -apple-system, sans-serif;
+}
+#app { padding: 8px; height: 100%; display: flex; flex-direction: column; }
+header h1 { font-size: 16px; }
+#status, #event-log, #reply { font-size: 11px; color: #bbb; margin-top: 4px; }
+#list { list-style: none; flex: 1; overflow: hidden; margin-top: 8px; }
+#list li {
+  min-height: 44px;
+  padding: 8px 6px;
+  border-radius: 6px;
+}
+#list li.selected { background: #2a4a2a; }
+#list .kind { color: #8fd18f; font-size: 10px; }
+#reply { max-height: 54px; overflow: hidden; }
+.recording #status { color: #ff6b6b; }

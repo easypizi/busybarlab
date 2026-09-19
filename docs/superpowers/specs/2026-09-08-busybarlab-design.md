@@ -4,7 +4,7 @@ Date: 2026-09-08
 
 ## Overview
 
-Two BUSY Bar lab apps sharing `apps/common` render backends.
+Two BUSY Bar lab apps sharing `busybar/common` render backends.
 
 1. **Wednesday Frogs** — front 72x16 RGB hopping frogs + marquee.
 2. **Cursor Token Pet** — back 160x80 OLED evolving pet fed by Cursor token spend from work (dark) and personal (light) accounts.

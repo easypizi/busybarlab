@@ -1,0 +1,52 @@
+---
+description: Device limits and repo layout for BUSY Bar, Flipper Zero, and Rabbit R1
+alwaysApply: true
+---
+
+# toy_lair devices
+
+Read `devices/<name>/README.md` before writing code for that device. Do not guess screen sizes or APIs.
+
+## Layout
+
+- BUSY Bar Python: `busybar/` (`common`, `wednesday_frogs`, `cursor_pet`)
+- Flipper JS: `flipper/busybar_remote/`
+- R1 creation: `rabbit/assistant/`
+- Assistant backend: `services/assistant/`
+- Personal knowledge (read-only): `docs/zayka-data-source.md`, vault `~/Documents/Zayka`
+
+## Hard limits
+
+| Device | Display / runtime | Must not |
+|--------|-------------------|----------|
+| BUSY Bar | front 72x16 RGB, back 160x80 grey | draw off-canvas, upload assets >255 KB, ignore HTTP 409 |
+| Flipper Zero | 128x64, mJS | assume browser JS, talk to the bar over USB |
+| Rabbit R1 | creation 240x282 WebView | WebGL, HTTP mic, intern-only backend, more than one creation |
+
+## Network
+
+- Bar USB: `http://10.0.4.20/api`, no auth. LAN: `X-API-Token`. Cloud: Bearer.
+- Bar Wi-Fi is 2.4 GHz only.
+- R1 creations and `getUserMedia` need HTTPS.
+- macOS Local Network permission is per app. Python in the terminal is not `curl`.
+
+## Zayka
+
+Never index or send `40 Areas/sensitive/`. Do not write to the vault from the assistant.
+
+## Examples
+
+```python
+# BAD: treat the bar like a 128x64 canvas
+el.x, el.y = 80, 20
+
+# GOOD: stay inside the front matrix
+el.x, el.y = 2, 4  # 72x16 front
+```
+
+```javascript
+// BAD: R1 mic over http://
+navigator.mediaDevices.getUserMedia({ audio: true });
+
+// GOOD: same-origin HTTPS creation, tap first, then PTT longPressStart
+```

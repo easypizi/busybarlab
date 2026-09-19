@@ -12,4 +12,6 @@ data/*.log
 dist/
 build/
 .env
+services/assistant/.env
 .DS_Store
+flipper/out/

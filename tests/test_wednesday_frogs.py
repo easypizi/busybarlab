@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from apps.wednesday_frogs.animation import (
+from busybar.wednesday_frogs.animation import (
     advance,
     create_scene,
     hop_offset,
@@ -43,3 +43,28 @@ def test_is_wednesday() -> None:
     # 2026-09-09 is Wednesday.
     assert is_wednesday(datetime(2026, 9, 9))
     assert not is_wednesday(datetime(2026, 9, 8))
+
+
+def test_build_draw_payload_happy_and_sad() -> None:
+    from busybar.wednesday_frogs.payload import build_draw_payload
+
+    happy = build_draw_payload(sad=False, marquee=True)
+    sad = build_draw_payload(sad=True, marquee=True)
+    assert happy["application_name"] == "wednesday-frogs"
+    frogs = happy["elements"][0]
+    assert frogs["type"] == "animation"
+    assert frogs["path"] == "frogs_happy.anim"
+    assert frogs["loop"] is True
+    marquee = happy["elements"][1]
+    assert marquee["text"] == "IT'S WEDNESDAY MY DUDES"
+    assert marquee["color"] == "#7CFC00FF"
+    assert sad["elements"][0]["path"] == "frogs_sad.anim"
+    assert sad["elements"][1]["text"] == "IT IS NOT WEDNESDAY MY DUDES"
+    assert sad["elements"][1]["color"] == "#A0A0A0FF"
+
+
+def test_build_draw_payload_without_marquee() -> None:
+    from busybar.wednesday_frogs.payload import build_draw_payload
+
+    payload = build_draw_payload(sad=False, marquee=False)
+    assert [el["id"] for el in payload["elements"]] == ["frogs"]

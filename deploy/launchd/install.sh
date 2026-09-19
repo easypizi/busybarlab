@@ -34,7 +34,7 @@ mkdir -p "$LAUNCH_AGENTS" "$REPO_ROOT/data"
 
 case "$MODE" in
   daemon)
-    LABEL="app.busybarlab.cursor-pet"
+    LABEL="app.toy_lair.cursor-pet"
     DST="$LAUNCH_AGENTS/$LABEL.plist"
     render "$REPO_ROOT/deploy/launchd/$LABEL.plist.template" "$DST"
     launchctl unload "$DST" 2>/dev/null || true
@@ -42,7 +42,7 @@ case "$MODE" in
     echo "Loaded $DST"
     ;;
   reporter)
-    LABEL="app.busybarlab.cursor-pet-reporter"
+    LABEL="app.toy_lair.cursor-pet-reporter"
     DST="$LAUNCH_AGENTS/$LABEL.plist"
     render "$REPO_ROOT/deploy/launchd/$LABEL.plist.template" "$DST"
     launchctl unload "$DST" 2>/dev/null || true
@@ -50,13 +50,13 @@ case "$MODE" in
     echo "Loaded $DST"
     ;;
   uninstall-daemon)
-    DST="$LAUNCH_AGENTS/app.busybarlab.cursor-pet.plist"
+    DST="$LAUNCH_AGENTS/app.toy_lair.cursor-pet.plist"
     launchctl unload "$DST" 2>/dev/null || true
     rm -f "$DST"
     echo "Uninstalled daemon agent"
     ;;
   uninstall-reporter)
-    DST="$LAUNCH_AGENTS/app.busybarlab.cursor-pet-reporter.plist"
+    DST="$LAUNCH_AGENTS/app.toy_lair.cursor-pet-reporter.plist"
     launchctl unload "$DST" 2>/dev/null || true
     rm -f "$DST"
     echo "Uninstalled reporter agent"

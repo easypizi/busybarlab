@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>app.toy_lair.cursor-pet-reporter</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PYTHON__</string>
+    <string>-m</string>
+    <string>busybar.cursor_pet.reporter</string>
+    <string>--account</string>
+    <string>__ACCOUNT__</string>
+    <string>--daemon</string>
+    <string>__DAEMON_URL__</string>
+    <string>--interval</string>
+    <string>300</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO_ROOT__</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>__REPO_ROOT__/data/pet-reporter.log</string>
+  <key>StandardErrorPath</key>
+  <string>__REPO_ROOT__/data/pet-reporter.err.log</string>
+</dict>
+</plist>
