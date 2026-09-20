@@ -138,3 +138,16 @@ def test_client_log_writes_line(caplog) -> None:
     assert response.json() == {"ok": True}
     assert "r1 client event=mic timeout" in caplog.text
     assert "detail=TimeoutError" in caplog.text
+
+
+def test_client_log_prints_event(capsys) -> None:
+    app = create_app(Settings(assistant_api_token="secret"))
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/client-log",
+            headers={"X-Assistant-Token": "secret"},
+            json={"event": "need tap", "detail": ""},
+        )
+    assert response.status_code == 200
+    captured = capsys.readouterr()
+    assert "r1 client event=need tap" in captured.out

@@ -164,11 +164,10 @@ def create_app(
         x_assistant_token: str | None = Header(default=None),
     ) -> dict[str, bool]:
         _guard(x_assistant_token)
-        LOG.info(
-            "r1 client event=%s detail=%s",
-            payload.get("event"),
-            payload.get("detail"),
-        )
+        event = payload.get("event")
+        detail = payload.get("detail")
+        print("r1 client event=%s detail=%s" % (event, detail), flush=True)
+        LOG.info("r1 client event=%s detail=%s", event, detail)
         return {"ok": True}
 
     @app.post("/api/text")

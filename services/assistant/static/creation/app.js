@@ -12,6 +12,7 @@
   var items = [];
   var selected = 0;
   var micStream = null;
+  var micWait = null;
   var recorder = null;
   var chunks = [];
   var lastEvent = "";
@@ -395,8 +396,13 @@
       });
   }
 
+  function setGateText(text) {
+    $("tap-gate").textContent = text;
+  }
+
   function showTapGate() {
     $("tap-gate").hidden = false;
+    setGateText("tap once for mic");
     setStatus("tap once for mic");
   }
 
@@ -406,10 +412,14 @@
 
   function enableMic() {
     if (micStream) return Promise.resolve(micStream);
+    if (micWait) return micWait;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setStatus("no getUserMedia (need HTTPS)");
       return Promise.reject(new Error("no mic"));
     }
+    setGateText("arming mic");
+    setStatus("arming mic");
+    beacon("mic ask", "");
     var pending = navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
       micStream = stream;
       hideTapGate();
@@ -422,9 +432,19 @@
         var err = new Error("mic timeout");
         err.name = "TimeoutError";
         reject(err);
-      }, 3000);
+      }, 8000);
     });
-    return Promise.race([pending, timed]);
+    micWait = Promise.race([pending, timed]).then(
+      function (stream) {
+        micWait = null;
+        return stream;
+      },
+      function (err) {
+        micWait = null;
+        throw err;
+      }
+    );
+    return micWait;
   }
 
   function beginRecorder() {
@@ -454,10 +474,17 @@
     }
   }
 
-  function startRec() {
+  function startRec(fromGesture) {
     recWanted = true;
     setPeek(false);
     document.body.classList.add("recording");
+    if (!fromGesture && !micStream) {
+      recWanted = false;
+      document.body.classList.remove("recording");
+      showTapGate();
+      beacon("need tap", "");
+      return;
+    }
     setStatus("arming mic");
     enableMic()
       .then(function () {
@@ -473,12 +500,15 @@
         var name = (err && err.name) || String(err && err.message) || "error";
         if (name === "TimeoutError" || (err && err.message) === "mic timeout") {
           setStatus("mic timeout");
+          setGateText("mic timeout · tap again");
+          $("tap-gate").hidden = false;
           beacon("mic timeout", name);
           return;
         }
         setStatus("mic: " + name);
         beacon("mic err", name);
-        if (name === "NotAllowedError") showTapGate();
+        showTapGate();
+        setGateText("mic: " + name);
       });
   }
 
@@ -557,38 +587,34 @@
     }, 2000);
   }
 
-  document.body.addEventListener(
-    "touchstart",
-    function (ev) {
-      ev.preventDefault();
-      enableMic()
-        .then(function () {
-          hideTapGate();
-          if ($("status").textContent === "tap once for mic") setStatus("hold PTT");
-        })
-        .catch(function () {
-          showTapGate();
-        });
-    },
-    { passive: false }
-  );
-
-  $("tap-gate").addEventListener(
-    "touchstart",
-    function (ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      enableMic()
-        .then(function () {
-          hideTapGate();
+  function onUserTap(ev) {
+    if (ev) ev.preventDefault();
+    setGateText("arming mic");
+    enableMic()
+      .then(function () {
+        hideTapGate();
+        var status = $("status").textContent;
+        if (status === "tap once for mic" || status === "arming mic" || status === "mic timeout") {
           setStatus("hold PTT");
-        })
-        .catch(function () {
-          showTapGate();
-        });
-    },
-    { passive: false }
-  );
+        }
+      })
+      .catch(function (err) {
+        var name = (err && err.name) || String(err && err.message) || "error";
+        $("tap-gate").hidden = false;
+        if (name === "TimeoutError" || (err && err.message) === "mic timeout") {
+          setGateText("mic timeout · tap again");
+          setStatus("mic timeout");
+          beacon("mic timeout", name);
+          return;
+        }
+        setGateText("mic: " + name);
+        setStatus("mic: " + name);
+        beacon("mic err", name);
+      });
+  }
+
+  document.body.addEventListener("touchstart", onUserTap, { passive: false });
+  document.body.addEventListener("click", onUserTap);
 
   window.addEventListener("scrollUp", function () {
     logEvent("scrollUp");
@@ -651,7 +677,7 @@
       function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
-        startRec();
+        startRec(true);
       },
       { passive: false }
     );
@@ -675,7 +701,7 @@
     );
     el.addEventListener("mousedown", function (ev) {
       ev.preventDefault();
-      startRec();
+      startRec(true);
     });
     el.addEventListener("mouseup", function (ev) {
       ev.preventDefault();
