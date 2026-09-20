@@ -64,6 +64,7 @@ def test_creation_index_is_r1_sized() -> None:
     assert "@keyframes" in css.text
     assert "64px" in css.text
     assert "#reply.long" in css.text
+    assert "#list { list-style: none; height: 100%; overflow-y: auto; }" in css.text
     script = client.get("/creation/app.js")
     assert "setReply" in script.text
     assert "scrollReply" in script.text
@@ -74,6 +75,7 @@ def test_creation_index_is_r1_sized() -> None:
     assert "mic timeout" in script.text
     assert "stop timeout" in script.text
     assert "empty clip" in script.text
+    assert "scrollIntoView" in script.text
     icon = client.get("/creation/icon.png")
     assert icon.status_code == 200
     assert icon.content[:8] == b"\x89PNG\r\n\x1a\n"

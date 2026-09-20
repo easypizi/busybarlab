@@ -42,6 +42,6 @@ Replies longer than 160 characters on channel `r1` are also sent to Telegram.
 |-------|--------|
 | Hold PTT | Record, release to send |
 | PTT click | Toggle today peek |
-| Wheel | Open peek, then move the selection |
+| Wheel | Open peek, then move the selection. Selected row scrolls into view. |
 
 See also [2026-09-19-r1-assistant-phase0-design.md](2026-09-19-r1-assistant-phase0-design.md). Phase 2 "sideClick completes a task" is obsolete.

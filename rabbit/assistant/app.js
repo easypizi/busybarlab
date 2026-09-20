@@ -367,6 +367,10 @@
       });
       list.appendChild(li);
     });
+    var chosen = list.querySelector(".selected");
+    if (chosen && chosen.scrollIntoView) {
+      chosen.scrollIntoView({ block: "nearest" });
+    }
   }
 
   function loadToday() {
