@@ -22,12 +22,12 @@ Open `http://127.0.0.1:8080/health` and `http://127.0.0.1:8080/creation/`. R1 mi
 
 Python 3.12 via `.python-version`. Buildpacks: `lstoll/heroku-buildpack-monorepo` then `heroku/python`, with `APP_BASE=services/assistant`. Procfile starts `toy_lair_assistant.factory:app`.
 
-Config vars: see `.env.example`. Use Basic dyno so the webhook and the in-process ticker do not sleep. Add Heroku Postgres (`DATABASE_URL`). The app ticks every 60 seconds in process. `/internal/tick` is only for a manual check. `/creation/*` is served with `Cache-Control: no-cache`, so after a deploy close and reopen Tito. Do not rescan the QR.
+Config vars: see `.env.example`. Use Basic dyno so the webhook and the in-process ticker do not sleep. Add Heroku Postgres (`DATABASE_URL`). The app ticks every 60 seconds in process. `/internal/tick` is only for a manual check. `/creation/*` is served with `Cache-Control: no-cache`, so after a deploy close and reopen Tito. The install QR points at `/creation/v2/` so a stuck WebView cache can be broken by one rescan.
 
 Creation install (Heroku is the main path):
 
 1. Open `https://<app>/creation/install.html?token=<ASSISTANT_API_TOKEN>`.
-2. On the r1: Creations → add via QR. Scan `/api/install-qr.png` (black-on-white PNG with a quiet zone). The payload URL is `https://<app>/creation/` unless `CREATION_PUBLIC_URL` is set. `iconUrl` is `https://<app>/i.png` (same file as `/creation/icon.png`).
+2. On the r1: Creations → add via QR. Scan `/api/install-qr.png` (black-on-white PNG with a quiet zone). The payload URL is `https://<app>/creation/v2/` unless `CREATION_PUBLIC_URL` is set. `iconUrl` is `https://<app>/i.png` (same file as `/creation/icon.png`).
 3. The creation shows a 4-digit pair code. Type it on the install page and press approve.
 4. The r1 stores the token in `creationStorage.secure` (and plain/local as fallback). After pairing, the screen is Talk home: hold PTT or the orange circle to talk, wheel opens today's peek. Mic, recorder, and clip steps go to `POST /api/client-log` (Heroku logs as `r1 client event=`). Long replies shrink and scroll with the wheel. Planning hours default to 10:00–22:00 including weekends (`PLAN_*` in `.env.example`). Long spoken plans are copied to Telegram.
 

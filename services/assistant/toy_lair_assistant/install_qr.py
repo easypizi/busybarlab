@@ -9,12 +9,13 @@ import segno
 CREATION_TITLE = "Tito"
 CREATION_DESCRIPTION = "Cal butler"
 CREATION_THEME = "#FE5000"
+CREATION_PATH = "/creation/v2/"
 
 
 def icon_url_for(url: str) -> str:
     parsed = urlparse(url)
     path = parsed.path.rstrip("/")
-    if parsed.scheme and parsed.netloc and path.endswith("/creation"):
+    if parsed.scheme and parsed.netloc and "/creation" in path:
         return f"{parsed.scheme}://{parsed.netloc}/i.png"
     return f"{url.rstrip('/')}/icon.png"
 
@@ -51,7 +52,7 @@ def qr_png(url: str) -> bytes:
 
 
 def creation_page_url(base: str) -> str:
-    return f"{base.rstrip('/')}/creation/"
+    return f"{base.rstrip('/')}{CREATION_PATH}"
 
 
 def creation_target_url(base: str, public: str = "") -> str:

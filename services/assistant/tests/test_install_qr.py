@@ -37,9 +37,17 @@ def test_creation_payload_icon_url_is_absolute() -> None:
 
 
 def test_creation_qr_stays_version_10_or_less() -> None:
-    url = "https://toy-lair-assistant-e9003db7d945.herokuapp.com/creation/"
+    url = "https://toy-lair-assistant-e9003db7d945.herokuapp.com/creation/v2/"
     code = segno.make(creation_json(url), error="m")
     assert code.version <= 10
+
+
+def test_v2_payload_uses_short_icon() -> None:
+    payload = creation_payload(
+        "https://toy-lair-assistant-e9003db7d945.herokuapp.com/creation/v2/"
+    )
+    assert payload["url"].endswith("/creation/v2/")
+    assert payload["iconUrl"].endswith("/i.png")
 
 
 def test_qr_svg_encodes_json_not_bare_url() -> None:
@@ -66,7 +74,7 @@ def test_qr_png_is_opaque_square_bitmap() -> None:
 
 
 def test_creation_page_url() -> None:
-    assert creation_page_url("https://example.com/") == "https://example.com/creation/"
+    assert creation_page_url("https://example.com/") == "https://example.com/creation/v2/"
 
 
 def test_creation_target_url_prefers_public_host() -> None:
@@ -74,7 +82,7 @@ def test_creation_target_url_prefers_public_host() -> None:
         creation_target_url("https://heroku.example/", "https://easypizi.github.io/toy_lair")
         == "https://easypizi.github.io/toy_lair/"
     )
-    assert creation_target_url("https://heroku.example/", "") == "https://heroku.example/creation/"
+    assert creation_target_url("https://heroku.example/", "") == "https://heroku.example/creation/v2/"
 
 
 def test_install_qr_requires_token() -> None:
@@ -96,7 +104,7 @@ def test_install_qr_requires_token() -> None:
     assert ok.status_code == 200
     assert "image/svg+xml" in ok.headers["content-type"]
     assert "<svg" in ok.text
-    created = "http://testserver/creation/"
+    created = "http://testserver/creation/v2/"
     assert qr_svg(created) == ok.text
     payload = json.loads(creation_json(created))
     assert payload["url"] == created
@@ -115,9 +123,13 @@ def test_creation_is_direct_html_and_short_path_is_gone() -> None:
     )
     with TestClient(app, follow_redirects=False) as client:
         page = client.get("/creation/")
+        bust = client.get("/creation/v2/")
         gone = client.get("/c")
     assert page.status_code == 200
     assert "text/html" in page.headers["content-type"]
+    assert bust.status_code == 200
+    assert "text/html" in bust.headers["content-type"]
+    assert "hold PTT or circle" in bust.text
     assert gone.status_code == 404
 
 
@@ -153,4 +165,4 @@ def test_install_qr_png_is_public() -> None:
     assert ok.status_code == 200
     assert "image/png" in ok.headers["content-type"]
     assert ok.content[:8] == b"\x89PNG\r\n\x1a\n"
-    assert ok.content == qr_png("http://testserver/creation/")
+    assert ok.content == qr_png("http://testserver/creation/v2/")

@@ -284,6 +284,7 @@ def create_app(
 
     static = creation_dir()
     if static.exists():
+        app.mount("/creation/v2", StaticFiles(directory=static, html=True), name="creation-v2")
         app.mount("/creation", StaticFiles(directory=static, html=True), name="creation")
 
     return app
