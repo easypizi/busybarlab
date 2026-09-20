@@ -7,9 +7,10 @@ from typing import Any
 
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from toy_lair_assistant.agent import invoke_agent
 from toy_lair_assistant.auth import require_token
 from toy_lair_assistant.clock import Clock
 from toy_lair_assistant.install_qr import creation_target_url, qr_png, qr_svg
@@ -93,7 +94,7 @@ def create_app(
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    app = FastAPI(title="toy_lair assistant", lifespan=lifespan)
+    app = FastAPI(title="Tito assistant", lifespan=lifespan)
     app.state.deps = deps
     pages_origin = deps.settings.creation_origin()
     if pages_origin:
@@ -132,7 +133,9 @@ def create_app(
         except Exception as exc:
             return {"transcript": "", "reply": str(exc), "audio_base64": ""}
         try:
-            result = deps.agent.handle_text(transcript, channel="r1")
+            result = invoke_agent(
+                deps.agent, transcript, channel="r1", notify=deps.notify
+            )
         except Exception as exc:
             return {"transcript": transcript, "reply": str(exc), "audio_base64": ""}
         try:
@@ -154,7 +157,7 @@ def create_app(
         if deps.agent is None:
             raise HTTPException(status_code=503, detail="agent is not configured")
         message = str(payload.get("text") or "").strip()
-        result = deps.agent.handle_text(message, channel="r1")
+        result = invoke_agent(deps.agent, message, channel="r1", notify=deps.notify)
         return {"reply": result.reply}
 
     @app.post("/api/tasks/{task_id}/complete")
@@ -205,6 +208,20 @@ def create_app(
         if result is None:
             raise HTTPException(status_code=404, detail="unknown pairing session")
         return result
+
+    @app.get("/i.png")
+    def short_icon() -> FileResponse:
+        icon = creation_dir() / "icon.png"
+        if not icon.exists():
+            raise HTTPException(status_code=404, detail="icon is missing")
+        return FileResponse(icon, media_type="image/png")
+
+    @app.get("/tito.png")
+    def tito_icon() -> FileResponse:
+        icon = creation_dir() / "tito.png"
+        if not icon.exists():
+            raise HTTPException(status_code=404, detail="icon is missing")
+        return FileResponse(icon, media_type="image/png")
 
     @app.get("/api/creation-url")
     def creation_url(request: Request) -> dict[str, str]:

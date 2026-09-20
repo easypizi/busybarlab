@@ -51,3 +51,32 @@ def test_creation_index_is_r1_sized() -> None:
     assert "tap once for mic" in script.text
     assert "completeSelected" not in script.text
     assert "togglePeek" in script.text
+    assert 'rel="icon"' in body
+    assert "icon.png" in body
+    assert "> Tito</h1>" in body or "> Tito<" in body
+    assert "<title>Tito</title>" in body
+    css = client.get("/creation/styles.css")
+    assert css.status_code == 200
+    assert "#FE5000" in css.text
+    assert "@keyframes" in css.text
+    assert "64px" in css.text
+    assert "#reply.long" in css.text
+    script = client.get("/creation/app.js")
+    assert "setReply" in script.text
+    assert "scrollReply" in script.text
+    icon = client.get("/creation/icon.png")
+    assert icon.status_code == 200
+    assert icon.content[:8] == b"\x89PNG\r\n\x1a\n"
+    short = client.get("/i.png")
+    assert short.status_code == 200
+    assert short.content == icon.content
+    tito = client.get("/creation/tito.png")
+    assert tito.status_code == 200
+    assert tito.content[:8] == b"\x89PNG\r\n\x1a\n"
+    via_root = client.get("/tito.png")
+    assert via_root.status_code == 200
+    assert via_root.content == tito.content
+    width = int.from_bytes(tito.content[16:20], "big")
+    height = int.from_bytes(tito.content[20:24], "big")
+    assert width == 512
+    assert height == 512

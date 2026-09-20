@@ -2,6 +2,8 @@ import json
 
 from fastapi.testclient import TestClient
 
+import segno
+
 from toy_lair_assistant.install_qr import (
     creation_json,
     creation_page_url,
@@ -17,12 +19,27 @@ from toy_lair_assistant.settings import Settings
 def test_creation_payload_is_rabbit_json() -> None:
     payload = creation_payload("https://example.com/creation/")
     assert payload == {
-        "title": "toy lair",
+        "title": "Tito",
         "url": "https://example.com/creation/",
-        "description": "Assistant",
-        "iconUrl": "",
+        "description": "Cal butler",
+        "iconUrl": "https://example.com/i.png",
         "themeColor": "#FE5000",
     }
+
+
+def test_creation_payload_icon_url_is_absolute() -> None:
+    payload = creation_payload(
+        "https://example.com/creation/",
+        "https://example.com/creation/icon.png",
+    )
+    assert payload["iconUrl"].startswith("https://")
+    assert payload["iconUrl"].endswith("/creation/icon.png")
+
+
+def test_creation_qr_stays_version_10_or_less() -> None:
+    url = "https://toy-lair-assistant-e9003db7d945.herokuapp.com/creation/"
+    code = segno.make(creation_json(url), error="m")
+    assert code.version <= 10
 
 
 def test_qr_svg_encodes_json_not_bare_url() -> None:
@@ -31,7 +48,7 @@ def test_qr_svg_encodes_json_not_bare_url() -> None:
     assert "<svg" in svg
     assert svg == qr_svg(url)
     decoded = json.loads(creation_json(url))
-    assert decoded["title"] == "toy lair"
+    assert decoded["title"] == "Tito"
     assert decoded["url"] == url
     assert decoded["themeColor"] == "#FE5000"
 
@@ -83,7 +100,7 @@ def test_install_qr_requires_token() -> None:
     assert qr_svg(created) == ok.text
     payload = json.loads(creation_json(created))
     assert payload["url"] == created
-    assert payload["title"] == "toy lair"
+    assert payload["title"] == "Tito"
     assert "qrserver.com" not in ok.text
 
 
@@ -117,6 +134,9 @@ def test_install_html_does_not_use_third_party_qr() -> None:
     assert "X-Assistant-Token" in page.text
     assert "/api/pair/approve" in page.text
     assert "/api/creation-url" in page.text
+    assert "Install Tito" in page.text
+    assert "tito.png" in page.text
+    assert "image-rendering: pixelated" in page.text
 
 
 def test_install_qr_png_is_public() -> None:

@@ -28,6 +28,23 @@
     $("status").textContent = text;
   }
 
+  function setReply(text) {
+    var reply = $("reply");
+    reply.textContent = text;
+    if ((text || "").length > 120) reply.classList.add("long");
+    else reply.classList.remove("long");
+    reply.scrollTop = 0;
+  }
+
+  function replyOverflows() {
+    var reply = $("reply");
+    return reply.scrollHeight > reply.clientHeight + 4;
+  }
+
+  function scrollReply(delta) {
+    $("reply").scrollTop += delta;
+  }
+
   function showPair(code) {
     $("pair").textContent = code ? code : "";
   }
@@ -417,7 +434,7 @@
           });
         })
         .then(function (data) {
-          $("reply").textContent = data.reply || "";
+          setReply(data.reply || "");
           setStatus(data.transcript || "ok");
           if (data.audio_base64) {
             var audio = new Audio("data:audio/mpeg;base64," + data.audio_base64);
@@ -468,6 +485,10 @@
   window.addEventListener("scrollUp", function () {
     logEvent("scrollUp");
     if (recWanted) return;
+    if (!peekOpen && replyOverflows() && $("reply").scrollTop > 0) {
+      scrollReply(-40);
+      return;
+    }
     if (!peekOpen) {
       setPeek(true);
       render();
@@ -483,6 +504,13 @@
   window.addEventListener("scrollDown", function () {
     logEvent("scrollDown");
     if (recWanted) return;
+    if (!peekOpen && replyOverflows()) {
+      var reply = $("reply");
+      if (reply.scrollTop + reply.clientHeight < reply.scrollHeight - 2) {
+        scrollReply(40);
+        return;
+      }
+    }
     if (!peekOpen) {
       setPeek(true);
       render();

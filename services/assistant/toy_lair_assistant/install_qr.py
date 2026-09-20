@@ -2,20 +2,29 @@ from __future__ import annotations
 
 import io
 import json
+from urllib.parse import urlparse
 
 import segno
 
-CREATION_TITLE = "toy lair"
-CREATION_DESCRIPTION = "Assistant"
+CREATION_TITLE = "Tito"
+CREATION_DESCRIPTION = "Cal butler"
 CREATION_THEME = "#FE5000"
 
 
-def creation_payload(url: str) -> dict[str, str]:
+def icon_url_for(url: str) -> str:
+    parsed = urlparse(url)
+    path = parsed.path.rstrip("/")
+    if parsed.scheme and parsed.netloc and path.endswith("/creation"):
+        return f"{parsed.scheme}://{parsed.netloc}/i.png"
+    return f"{url.rstrip('/')}/icon.png"
+
+
+def creation_payload(url: str, icon_url: str = "") -> dict[str, str]:
     return {
         "title": CREATION_TITLE,
         "url": url,
         "description": CREATION_DESCRIPTION,
-        "iconUrl": "",
+        "iconUrl": icon_url or icon_url_for(url),
         "themeColor": CREATION_THEME,
     }
 

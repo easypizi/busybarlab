@@ -18,8 +18,26 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "content": {"type": "string"},
                     "due_string": {"type": "string"},
+                    "due_datetime": {"type": "string"},
+                    "priority": {"type": "integer"},
+                    "labels": {"type": "array", "items": {"type": "string"}},
+                    "deadline": {"type": "string"},
+                    "description": {"type": "string"},
+                    "duration_minutes": {"type": "integer"},
+                    "project": {"type": "string"},
                 },
                 "required": ["content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "todoist_upcoming",
+            "description": "List upcoming Todoist tasks",
+            "parameters": {
+                "type": "object",
+                "properties": {"days": {"type": "integer"}},
             },
         },
     },
@@ -39,14 +57,22 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "todoist_update",
-            "description": "Rename a Todoist task",
+            "description": "Update a Todoist task. Never delete tasks.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "task_id": {"type": "string"},
                     "content": {"type": "string"},
+                    "priority": {"type": "integer"},
+                    "labels": {"type": "array", "items": {"type": "string"}},
+                    "deadline": {"type": "string"},
+                    "description": {"type": "string"},
+                    "duration_minutes": {"type": "integer"},
+                    "due_string": {"type": "string"},
+                    "due_datetime": {"type": "string"},
+                    "project": {"type": "string"},
                 },
-                "required": ["task_id", "content"],
+                "required": ["task_id"],
             },
         },
     },
@@ -85,15 +111,57 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "gcal_create",
-            "description": "Create a calendar event",
+            "description": "Create a calendar event or meeting",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "title": {"type": "string"},
                     "start": {"type": "string"},
                     "end": {"type": "string"},
+                    "duration_minutes": {"type": "integer"},
+                    "attendees": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "description": {"type": "string"},
                 },
-                "required": ["title", "start", "end"],
+                "required": ["title", "start"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "free_slots",
+            "description": "List free calendar windows over the planning horizon",
+            "parameters": {
+                "type": "object",
+                "properties": {"days": {"type": "integer"}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "plan_apply",
+            "description": "Apply a confirmed plan: create Todoist tasks only. Tito calendar mirrors them.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "content": {"type": "string"},
+                                "start": {"type": "string"},
+                                "duration_minutes": {"type": "integer"},
+                            },
+                            "required": ["content", "start"],
+                        },
+                    }
+                },
+                "required": ["items"],
             },
         },
     },

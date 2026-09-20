@@ -63,6 +63,25 @@ def test_add_sends_item_add() -> None:
     assert created.id == "99"
 
 
+def test_add_sends_due_datetime_with_timezone() -> None:
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={"sync_status": {"x": "ok"}, "temp_id_mapping": {"tmp": "88"}},
+        )
+
+    created = _client(handler).add(
+        "Write plan", due_datetime="2026-09-21T15:00:00-07:00"
+    )
+    due = seen["body"]["commands"][0]["args"]["due"]
+    assert due["date"] == "2026-09-21T15:00:00-07:00"
+    assert due["timezone"] == "America/Los_Angeles"
+    assert created.id == "88"
+
+
 def test_complete_sends_item_complete() -> None:
     seen: dict = {}
 
@@ -73,3 +92,82 @@ def test_complete_sends_item_complete() -> None:
     _client(handler).complete("1")
     assert seen["body"]["commands"][0]["type"] == "item_complete"
     assert seen["body"]["commands"][0]["args"]["id"] == "1"
+
+
+def test_to_task_reads_all_fields() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "sync_token": "abc",
+                "projects": [{"id": "p1", "name": "Home"}],
+                "items": [
+                    {
+                        "id": "7",
+                        "content": "Pay rent",
+                        "checked": False,
+                        "priority": 4,
+                        "labels": ["finance"],
+                        "description": "monthly",
+                        "project_id": "p1",
+                        "due": {
+                            "date": "2026-09-19T12:00:00",
+                            "string": "today 12:00",
+                            "is_recurring": True,
+                        },
+                        "deadline": {"date": "2026-09-25"},
+                        "duration": {"amount": 30, "unit": "minute"},
+                    }
+                ],
+            },
+        )
+
+    tasks = _client(handler).open_tasks()
+    task = tasks[0]
+    assert task.priority == 4
+    assert task.labels == ["finance"]
+    assert task.deadline == "2026-09-25"
+    assert task.description == "monthly"
+    assert task.duration_minutes == 30
+    assert task.project == "Home"
+    assert task.project_id == "p1"
+    assert task.is_recurring is True
+    assert task.due_time == "2026-09-19T12:00:00"
+    assert task.due_date == "2026-09-19"
+
+
+def test_add_sends_deadline_duration_priority() -> None:
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={"sync_status": {"x": "ok"}, "temp_id_mapping": {"tmp": "55"}},
+        )
+
+    created = _client(handler).add(
+        "Pay rent",
+        priority=4,
+        labels=["finance"],
+        deadline="2026-09-25",
+        description="monthly",
+        duration_minutes=30,
+    )
+    args = seen["body"]["commands"][0]["args"]
+    assert args["priority"] == 4
+    assert args["labels"] == ["finance"]
+    assert args["deadline"] == {"date": "2026-09-25"}
+    assert args["description"] == "monthly"
+    assert args["duration"] == {"amount": 30, "unit": "minute"}
+    assert created.id == "55"
+
+
+def test_no_todoist_delete_tool() -> None:
+    from toy_lair_assistant.agent import Agent
+    from toy_lair_assistant.llm import TOOL_SCHEMAS
+
+    names = [schema["function"]["name"] for schema in TOOL_SCHEMAS]
+    assert not any(name.startswith("todoist_") and "delete" in name for name in names)
+    agent = Agent(todoist=object(), calendar=object(), llm=object(), now=lambda: None)
+    assert not any(name.startswith("todoist_") and "delete" in name for name in agent.tools)

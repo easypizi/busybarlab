@@ -12,6 +12,7 @@ class MemoryStore:
         self.keys: set[str] = set()
         self.reminders: dict[str, Reminder] = {}
         self.turns: list[dict[str, Any]] = []
+        self.feedback: list[dict[str, Any]] = []
 
     def seen(self, key: str) -> bool:
         return key in self.keys
@@ -64,6 +65,11 @@ class MemoryStore:
             for turn in kept[-limit:]
         ]
 
+    def add_feedback(self, channel: str, turn_id: str, vote: str, at: datetime) -> None:
+        self.feedback.append(
+            {"channel": channel, "turn": turn_id, "vote": vote, "at": at}
+        )
+
 
 class SqliteStore:
     def __init__(self, path: str = ":memory:") -> None:
@@ -85,6 +91,15 @@ class SqliteStore:
                 channel TEXT,
                 role TEXT,
                 content TEXT,
+                created_at TEXT
+            )"""
+        )
+        self.conn.execute(
+            """CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel TEXT,
+                turn TEXT,
+                vote TEXT,
                 created_at TEXT
             )"""
         )
@@ -142,6 +157,13 @@ class SqliteStore:
         ).fetchall()
         return [{"role": r[0], "content": r[1]} for r in rows[-limit:]]
 
+    def add_feedback(self, channel: str, turn_id: str, vote: str, at: datetime) -> None:
+        self.conn.execute(
+            "INSERT INTO feedback(channel, turn, vote, created_at) VALUES (?, ?, ?, ?)",
+            (channel, turn_id, vote, at.isoformat()),
+        )
+        self.conn.commit()
+
 
 def open_store(database_url: str) -> Any:
     if not database_url:
@@ -177,6 +199,15 @@ class PostgresStore:
                     channel TEXT,
                     role TEXT,
                     content TEXT,
+                    created_at TEXT
+                )"""
+            )
+            cur.execute(
+                """CREATE TABLE IF NOT EXISTS feedback (
+                    id SERIAL PRIMARY KEY,
+                    channel TEXT,
+                    turn TEXT,
+                    vote TEXT,
                     created_at TEXT
                 )"""
             )
@@ -244,3 +275,11 @@ class PostgresStore:
             )
             rows = cur.fetchall()
         return [{"role": r[0], "content": r[1]} for r in rows[-limit:]]
+
+    def add_feedback(self, channel: str, turn_id: str, vote: str, at: datetime) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO feedback(channel, turn, vote, created_at) VALUES (%s, %s, %s, %s)",
+                (channel, turn_id, vote, at.isoformat()),
+            )
+        self.conn.commit()

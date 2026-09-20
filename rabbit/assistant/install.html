@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Install toy_lair on r1</title>
+  <title>Install Tito on r1</title>
   <style>
-    body { font: 16px/1.4 sans-serif; max-width: 520px; margin: 40px auto; }
+    body { font: 16px/1.4 -apple-system, sans-serif; max-width: 520px; margin: 40px auto; }
+    header { display: flex; align-items: center; gap: 12px; }
+    header img { width: 48px; height: 48px; image-rendering: pixelated; }
     #qr { background: #fff; padding: 24px; display: inline-block; }
     #qr img { width: 360px; height: 360px; image-rendering: pixelated; }
     code { word-break: break-all; }
@@ -12,7 +14,10 @@
   </style>
 </head>
 <body>
-  <h1>Install toy_lair</h1>
+  <header>
+    <img src="tito.png" alt="Tito" width="48" height="48">
+    <h1>Install Tito</h1>
+  </header>
   <p>Creations → add via QR. Bright screen, hold the r1 20–30 cm away.</p>
   <p id="qr"><img id="qr-img" alt="creation qr"></p>
   <p>Creation URL: <code id="url"></code></p>
@@ -26,7 +31,7 @@
   <script>
     var params = new URLSearchParams(location.search);
     var token = params.get("token") || "";
-    var API = /github\.io$/.test(location.hostname)
+    var API = /github.io$/.test(location.hostname)
       ? "https://toy-lair-assistant-e9003db7d945.herokuapp.com"
       : "";
 

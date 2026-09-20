@@ -19,13 +19,15 @@ class OpenAISpeech(Speech):
         api_key: str,
         stt_model: str = "whisper-1",
         tts_model: str = "gpt-4o-mini-tts",
-        voice: str = "alloy",
+        voice: str = "ash",
+        instructions: str = "",
         http: httpx.Client | None = None,
     ) -> None:
         self.api_key = api_key
         self.stt_model = stt_model
         self.tts_model = tts_model
         self.voice = voice
+        self.instructions = instructions
         self.http = http or httpx.Client(timeout=60)
 
     def transcribe(self, data: bytes, mime: str) -> str:
@@ -44,7 +46,12 @@ class OpenAISpeech(Speech):
         response = self.http.post(
             "https://api.openai.com/v1/audio/speech",
             headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-            json={"model": self.tts_model, "voice": self.voice, "input": text},
+            json={
+                "model": self.tts_model,
+                "voice": self.voice,
+                "input": text,
+                **({"instructions": self.instructions} if self.instructions else {}),
+            },
         )
         response.raise_for_status()
         return base64.b64encode(response.content).decode("ascii")

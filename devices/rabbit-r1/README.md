@@ -52,7 +52,7 @@ Install: host the site, open `install.html`, scan the QR from Creations → add 
 - Serve the creation from the same Heroku app (`https://…`) so mic + API are same-origin.
 - Voice v1: hold PTT → `getUserMedia` + record → `POST /api/voice` → STT → agent → TTS (2–4 s). If the WebView blocks mic on PTT, a one-time tap gate appears. No WebRTC in v1.
 - No push into a creation. Proactive reminders go to Telegram.
-- Touch targets should stay near 44 px. Dark high-contrast UI. No WebGL animations.
+- Touch targets should stay near 44 px. Dark high-contrast UI, accent `#FE5000`, 512px creation icon. No WebGL animations. PTT pulse uses `transform` and `opacity` only.
 
 ## Repo map
 

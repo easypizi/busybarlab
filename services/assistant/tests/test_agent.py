@@ -19,9 +19,26 @@ class FakeTodoist:
     def upcoming(self, days: int = 7):
         return list(self.tasks)
 
-    def add(self, content: str, due_string: str | None = None):
-        self.added.append((content, due_string))
-        task = Task(id="9", content=content, due_date=None, due_string=due_string)
+    def add(
+        self,
+        content: str,
+        due_string: str | None = None,
+        due_datetime: str | None = None,
+        **kwargs,
+    ):
+        self.added.append((content, due_string, due_datetime))
+        task = Task(
+            id="9",
+            content=content,
+            due_date=due_datetime.split("T")[0] if due_datetime else None,
+            due_string=due_string,
+            due_time=due_datetime,
+            duration_minutes=kwargs.get("duration_minutes"),
+            priority=int(kwargs.get("priority") or 1),
+            labels=list(kwargs.get("labels") or []),
+            deadline=kwargs.get("deadline"),
+            description=kwargs.get("description") or "",
+        )
         self.tasks.append(task)
         return task
 
@@ -36,6 +53,9 @@ class FakeTodoist:
 
 
 class FakeCal:
+    def __init__(self) -> None:
+        self.created: list[dict] = []
+
     def events_for_day(self, day=None):
         return [
             CalendarEvent(
@@ -50,7 +70,13 @@ class FakeCal:
         return self.events_for_day()
 
     def create(self, **kwargs):
-        return self.events_for_day()[0]
+        self.created.append(kwargs)
+        return CalendarEvent(
+            id="n1",
+            title=str(kwargs.get("title") or "Standup"),
+            start=str(kwargs.get("start") or ""),
+            end=str(kwargs.get("end") or ""),
+        )
 
     def move(self, event_id: str, **kwargs):
         return self.events_for_day()[0]
@@ -106,7 +132,7 @@ def test_handle_text_runs_todoist_add() -> None:
     )
     agent = Agent(todoist=todoist, calendar=FakeCal(), llm=llm, now=_now)
     result = agent.handle_text("add call mom today")
-    assert todoist.added == [("Call mom", "today")]
+    assert todoist.added == [("Call mom", "today", None)]
     assert "Call mom" in result.reply
 
 
@@ -232,3 +258,177 @@ def test_memory_keeps_followup(tmp_path=None) -> None:
     user_bits = " ".join(m.get("content") or "" for m in second if m["role"] == "user")
     assert "standup is e1" in user_bits
     assert "move it to tomorrow" in user_bits
+
+
+PLAN_ITEMS = [
+    {
+        "content": "Write brief",
+        "start": "2026-09-21T10:00:00-07:00",
+        "duration_minutes": 60,
+    }
+]
+
+
+def test_system_prompt_has_planning_rules() -> None:
+    llm = ScriptedLLM([])
+    agent = Agent(todoist=FakeTodoist(), calendar=FakeCal(), llm=llm, now=_now)
+    agent.handle_text("plan my week")
+    system = llm.seen[0][0]["content"]
+    assert "free_slots" in system
+    assert "todoist_upcoming" in system
+    assert "plan_apply" in system
+    assert "confirm" in system.lower()
+
+
+def test_plan_apply_requires_confirmation() -> None:
+    todoist = FakeTodoist()
+    calendar = FakeCal()
+    llm = ScriptedLLM(
+        [ToolCall(name="plan_apply", arguments={"items": PLAN_ITEMS})],
+        text="Planned 1 items, 1 events.",
+    )
+    agent = Agent(todoist=todoist, calendar=calendar, llm=llm, now=_now)
+    result = agent.handle_text("schedule these")
+    assert todoist.added == []
+    assert calendar.created == []
+    assert "confirm" in result.reply.lower()
+    assert "plan" in result.reply.lower()
+
+
+def test_plan_apply_after_confirm_word() -> None:
+    todoist = FakeTodoist()
+    calendar = FakeCal()
+    llm = ScriptedLLM(
+        [ToolCall(name="plan_apply", arguments={"items": PLAN_ITEMS})],
+        text="Planned 1 items, 1 events.",
+    )
+    agent = Agent(todoist=todoist, calendar=calendar, llm=llm, now=_now)
+    result = agent.handle_text("давай")
+    assert todoist.added == [("Write brief", None, "2026-09-21T10:00:00-07:00")]
+    assert calendar.created == []
+    assert todoist.tasks[-1].duration_minutes == 60
+    assert "Planned 1" in result.reply or result.reply
+
+
+def test_gcal_create_duration_and_attendees() -> None:
+    calendar = FakeCal()
+    llm = ScriptedLLM(
+        [
+            ToolCall(
+                name="gcal_create",
+                arguments={
+                    "title": "Sync with Ivan",
+                    "start": "2026-09-23T15:00:00-07:00",
+                    "duration_minutes": 60,
+                    "attendees": ["ivan@example.com"],
+                    "description": "weekly",
+                },
+            )
+        ],
+        text="Created Sync with Ivan.",
+    )
+    agent = Agent(todoist=FakeTodoist(), calendar=calendar, llm=llm, now=_now)
+    result = agent.handle_text("meeting with Ivan Wednesday at 15")
+    created = calendar.created[0]
+    assert created["title"] == "Sync with Ivan"
+    assert created["start"] == "2026-09-23T15:00:00-07:00"
+    assert "2026-09-23T16:00:00" in created["end"]
+    assert created["attendees"] == ["ivan@example.com"]
+    assert created["description"] == "weekly"
+    assert "Ivan" in result.reply or result.reply
+
+
+def test_tool_loop_allows_four_rounds() -> None:
+    llm = ScriptedLLM(
+        rounds=[
+            AgentResult(
+                reply="",
+                tool_calls=[ToolCall(name="free_slots", arguments={"days": 7})],
+            ),
+            AgentResult(
+                reply="",
+                tool_calls=[ToolCall(name="todoist_upcoming", arguments={"days": 7})],
+            ),
+            AgentResult(
+                reply="",
+                tool_calls=[ToolCall(name="todoist_today", arguments={})],
+            ),
+            AgentResult(reply="Here is a plan.", tool_calls=[]),
+        ]
+    )
+    agent = Agent(todoist=FakeTodoist(), calendar=FakeCal(), llm=llm, now=_now)
+    result = agent.handle_text("plan a week of chores")
+    assert len(llm.seen) == 4
+    assert result.reply == "Here is a plan."
+
+
+def test_system_prompt_is_tito_and_forbids_delete() -> None:
+    llm = ScriptedLLM([])
+    todoist = FakeTodoist()
+    todoist.tasks = [
+        Task(
+            id="1",
+            content="Pay rent",
+            due_date="2026-09-19",
+            due_string="12:00",
+            priority=4,
+            labels=["finance"],
+            deadline="2026-09-25",
+            duration_minutes=30,
+        )
+    ]
+    agent = Agent(todoist=todoist, calendar=FakeCal(), llm=llm, now=_now)
+    agent.handle_text("what's on")
+    system = llm.seen[0][0]["content"]
+    assert "You are Tito" in system
+    assert "Never delete Todoist" in system
+    assert "Plain text only" in system
+    assert "p1" in system
+    assert "@finance" in system
+    assert "deadline 09-25" in system
+    assert "30m" in system
+    llm.rounds = [AgentResult(reply="ok", tool_calls=[])]
+    agent.handle_text("hi", channel="telegram")
+    telegram = llm.seen[-1][0]["content"]
+    assert "**bold**" in telegram
+
+
+def test_todoist_delete_tool_is_rejected() -> None:
+    todoist = FakeTodoist()
+    llm = ScriptedLLM(
+        rounds=[
+            AgentResult(
+                reply="",
+                tool_calls=[ToolCall(name="todoist_delete", arguments={"task_id": "1"})],
+            ),
+            AgentResult(reply="I will keep it.", tool_calls=[]),
+        ]
+    )
+    agent = Agent(todoist=todoist, calendar=FakeCal(), llm=llm, now=_now)
+    result = agent.handle_text("delete the milk task")
+    tool = [m for m in llm.seen[1] if m["role"] == "tool"]
+    assert any("does not delete" in str(m["content"]) for m in tool)
+    assert result.reply == "I will keep it."
+
+
+def test_today_payload_hides_todoist_mirrors() -> None:
+    calendar = FakeCal()
+    base = calendar.events_for_day()
+
+    def events_for_day(day=None):
+        return base + [
+            CalendarEvent(
+                id="m1",
+                title="Pay rent",
+                start="2026-09-19T12:00:00-07:00",
+                end="2026-09-19T13:00:00-07:00",
+                todoist_id="1",
+            )
+        ]
+
+    calendar.events_for_day = events_for_day  # type: ignore[method-assign]
+    agent = Agent(todoist=FakeTodoist(), calendar=calendar, llm=ScriptedLLM([]), now=_now)
+    titles = [item["title"] for item in agent.today_payload(_now())["items"]]
+    assert "Standup" in titles
+    assert "Pay rent" not in titles
+    assert "Buy milk" in titles

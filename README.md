@@ -149,7 +149,7 @@ ACCOUNT=work DAEMON_URL=http://192.168.x.x:8765 ./deploy/launchd/install.sh repo
 
 ### Rabbit R1 assistant
 
-Voice-first agent for Todoist + Google Calendar, with Telegram reminders. Creation UI is Talk home in `rabbit/assistant/` (hold PTT). Backend is `services/assistant/` (Heroku app `toy-lair-assistant`).
+Voice-first Tito butler for Todoist + Google Calendar, with Telegram reminders. It can add and edit tasks, book meetings, and after a confirm word plan timed tasks into Todoist (mirrored to a Tito calendar). Creation UI is Talk home in `rabbit/assistant/` (hold PTT). Backend is `services/assistant/` (Heroku app `toy-lair-assistant`).
 
 ```bash
 cd services/assistant
