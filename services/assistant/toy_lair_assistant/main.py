@@ -108,6 +108,13 @@ def create_app(
             allow_headers=["*"],
         )
 
+    @app.middleware("http")
+    async def creation_no_cache(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/creation"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}

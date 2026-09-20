@@ -17,6 +17,7 @@ def test_health_ok() -> None:
         response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+    assert "cache-control" not in response.headers
 
 
 def test_creation_index_is_r1_sized() -> None:
@@ -24,12 +25,14 @@ def test_creation_index_is_r1_sized() -> None:
     with TestClient(app) as client:
         response = client.get("/creation/index.html")
     assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-cache"
     body = response.text
     assert "240" in body
     assert "282" in body
     assert 'id="pair"' in body
     script = client.get("/creation/app.js")
     assert script.status_code == 200
+    assert script.headers["cache-control"] == "no-cache"
     assert "herokuapp.com" in script.text
     assert "/api/pair/start" in script.text
     assert "waitForBridge" in script.text

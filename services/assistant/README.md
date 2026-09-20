@@ -22,7 +22,7 @@ Open `http://127.0.0.1:8080/health` and `http://127.0.0.1:8080/creation/`. R1 mi
 
 Python 3.12 via `.python-version`. Buildpacks: `lstoll/heroku-buildpack-monorepo` then `heroku/python`, with `APP_BASE=services/assistant`. Procfile starts `toy_lair_assistant.factory:app`.
 
-Config vars: see `.env.example`. Use Basic dyno so the webhook and the in-process ticker do not sleep. Add Heroku Postgres (`DATABASE_URL`). The app ticks every 60 seconds in process. `/internal/tick` is only for a manual check.
+Config vars: see `.env.example`. Use Basic dyno so the webhook and the in-process ticker do not sleep. Add Heroku Postgres (`DATABASE_URL`). The app ticks every 60 seconds in process. `/internal/tick` is only for a manual check. `/creation/*` is served with `Cache-Control: no-cache`, so after a deploy close and reopen Tito. Do not rescan the QR.
 
 Creation install (Heroku is the main path):
 
