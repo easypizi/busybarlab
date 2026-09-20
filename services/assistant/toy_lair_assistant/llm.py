@@ -243,14 +243,16 @@ class OpenAILLM:
 
     def complete(self, messages: list[dict[str, Any]], tools: list[str]) -> AgentResult:
         selected = [schema for schema in TOOL_SCHEMAS if schema["function"]["name"] in tools]
+        body: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+        }
+        if selected:
+            body["tools"] = selected
         response = self.http.post(
             "https://api.openai.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-            json={
-                "model": self.model,
-                "messages": messages,
-                "tools": selected,
-            },
+            json=body,
         )
         response.raise_for_status()
         message = response.json()["choices"][0]["message"]

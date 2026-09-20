@@ -31,8 +31,7 @@ class OpenAISpeech(Speech):
         self.http = http or httpx.Client(timeout=60)
 
     def transcribe(self, data: bytes, mime: str) -> str:
-        ext = "webm" if "webm" in mime else "wav"
-        files = {"file": (f"clip.{ext}", data, mime or "application/octet-stream")}
+        files = {"file": (_clip_name(mime), data, mime or "application/octet-stream")}
         response = self.http.post(
             "https://api.openai.com/v1/audio/transcriptions",
             headers={"Authorization": f"Bearer {self.api_key}"},
@@ -55,6 +54,17 @@ class OpenAISpeech(Speech):
         )
         response.raise_for_status()
         return base64.b64encode(response.content).decode("ascii")
+
+
+def _clip_name(mime: str) -> str:
+    lower = (mime or "").lower()
+    if "ogg" in lower:
+        return "clip.ogg"
+    if "mp4" in lower or "m4a" in lower:
+        return "clip.m4a"
+    if "webm" in lower:
+        return "clip.webm"
+    return "clip.wav"
 
 
 class SilentSpeech(Speech):

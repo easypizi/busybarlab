@@ -29,3 +29,16 @@ def test_sqlite_turns_roundtrip(tmp_path) -> None:
         ("user", "hi"),
         ("assistant", "hello"),
     ]
+
+
+def test_memory_and_sqlite_save_plan(tmp_path) -> None:
+    now = datetime(2026, 9, 20, 10, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+    payload = {"plan_id": "abcd1234", "suggested": [{"task_id": "t1"}]}
+    memory = MemoryStore()
+    memory.save_plan("abcd1234", payload, now)
+    assert memory.get_plan("abcd1234") == payload
+    assert memory.get_plan("missing") is None
+    sqlite = SqliteStore(str(tmp_path / "plans.db"))
+    sqlite.save_plan("abcd1234", payload, now)
+    assert sqlite.get_plan("abcd1234") == payload
+    assert sqlite.get_plan("missing") is None

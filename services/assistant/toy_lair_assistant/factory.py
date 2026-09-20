@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from toy_lair_assistant.agent import Agent
 from toy_lair_assistant.clients.gcal import GoogleCalendarClient
 from toy_lair_assistant.clients.telegram import TelegramBot
+from toy_lair_assistant.day_plan import DayPlanner
 from toy_lair_assistant.google_alert import make_auth_alerter
 from toy_lair_assistant.clients.todoist import TodoistClient
 from toy_lair_assistant.clock import Clock
@@ -70,6 +71,21 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         zayka = ZaykaIndex(Path(zayka_dir))
     llm = OpenAILLM(settings.openai_api_key, settings.openai_model) if settings.openai_api_key else EchoLLM()
     task_sync = TaskSync(todoist, calendar, settings) if todoist and calendar else None
+    day_planner = (
+        DayPlanner(
+            todoist=todoist,
+            calendar=calendar,
+            llm=llm,
+            settings=settings,
+            store=store,
+            task_sync=task_sync,
+        )
+        if todoist and calendar
+        else None
+    )
+    if notify is not None:
+        notify.day_planner = day_planner
+        notify.task_sync = task_sync
     agent = None
     if todoist and calendar:
         agent = Agent(
@@ -115,6 +131,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             timezone=settings.timezone,
             settings=settings,
             task_sync=task_sync,
+            day_planner=day_planner,
         )
     return app
 

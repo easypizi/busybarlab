@@ -95,6 +95,7 @@ SETTINGS = SimpleNamespace(
     plan_hours_start=10,
     plan_hours_end=22,
     plan_default_minutes=60,
+    plan_weekends=True,
     task_sync_interval_seconds=300,
 )
 
@@ -201,6 +202,63 @@ def test_briefing_has_sections() -> None:
     assert text.index("Pay rent") < text.index("Walk")
     assert "🔴" in text
     assert "Dentist" in text
+
+
+def test_briefing_uses_day_schedule() -> None:
+    from toy_lair_assistant.agent import AgentResult
+    from toy_lair_assistant.day_plan import DayPlanner
+
+    rec = Rec()
+    tasks = [
+        Task(id="o", content="Old bill", due_date="2026-09-19"),
+        Task(id="d", content="Taxes", deadline="2026-09-20"),
+        Task(
+            id="run",
+            content="Бег",
+            due_date="2026-09-20",
+            due_time="2026-09-20T10:00:00-07:00",
+            duration_minutes=60,
+        ),
+        Task(id="clean", content="Уборка", due_date="2026-09-20"),
+        Task(id="pills", content="Supplements!", due_date="2026-09-20", is_recurring=True),
+    ]
+
+    class TodayTodoist(OpenTodoist):
+        def today(self):
+            return [task for task in self._tasks if task.due_date == "2026-09-20"]
+
+    class ReplyLLM:
+        def complete(self, messages, tools):
+            return AgentResult(reply='{"scheduled":[],"anytime":["t1"]}', tool_calls=[])
+
+    now = datetime(2026, 9, 20, 8, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+    store = MemoryStore()
+    planner = DayPlanner(
+        todoist=TodayTodoist(tasks),
+        calendar=EmptyCal(),
+        llm=ReplyLLM(),
+        settings=SETTINGS,
+        store=store,
+    )
+    sched = Scheduler(
+        todoist=TodayTodoist(tasks),
+        calendar=EmptyCal(),
+        store=store,
+        notify=rec,
+        lead_minutes=15,
+        briefing_hour=8,
+        timezone="America/Los_Angeles",
+        settings=SETTINGS,
+        day_planner=planner,
+    )
+    sched.tick(now)
+    text, buttons = next(item for item in rec.sent if "Briefing" in item[0])
+    assert "**Overdue**" in text
+    assert "**Deadlines**" in text
+    assert "**Schedule**" in text
+    assert "**Anytime**" in text
+    assert "Уборка" in text
+    assert "Supplements!" in text
 
 
 def test_event_lead_skips_task_mirrors() -> None:

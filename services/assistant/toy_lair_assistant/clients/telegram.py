@@ -73,6 +73,8 @@ class TelegramBot:
         todoist: Any = None,
         photo_path: Path | None = None,
         now: Callable[[], datetime] | None = None,
+        day_planner: Any = None,
+        task_sync: Any = None,
     ) -> None:
         self.token = token
         self.chat_id = str(chat_id)
@@ -84,6 +86,8 @@ class TelegramBot:
         self.todoist = todoist
         self.photo_path = photo_path
         self.now = now or (lambda: datetime.now(ZoneInfo("America/Los_Angeles")))
+        self.day_planner = day_planner
+        self.task_sync = task_sync
 
     def close(self) -> None:
         if self._owns_http:
@@ -166,7 +170,7 @@ class TelegramBot:
             self.send_message(HELP, photo=self.photo_path)
             return
         if name == "/today":
-            self.send_message(self._today_text(agent))
+            self._send_today(agent)
             return
         if name == "/week":
             self.send_message(self._week_text(agent))
@@ -183,6 +187,15 @@ class TelegramBot:
         result = invoke_agent(agent, text, channel="telegram")
         turn_id = uuid.uuid4().hex[:8]
         self.send_message(result.reply, buttons=feedback_buttons(turn_id))
+
+    def _send_today(self, agent: Any) -> None:
+        if self.day_planner is not None:
+            from toy_lair_assistant.day_plan import plan_buttons, render
+
+            plan = self.day_planner.build(self.now())
+            self.send_message(render(plan), buttons=plan_buttons(plan))
+            return
+        self.send_message(self._today_text(agent))
 
     def _today_text(self, agent: Any) -> str:
         payload = agent.today_payload(agent.now())
@@ -246,8 +259,35 @@ class TelegramBot:
             if self.store and hasattr(self.store, "add_feedback"):
                 self.store.add_feedback("telegram", turn_id, vote, self.now())
             return
+        if data.startswith("plan:") and self.day_planner is not None:
+            self._plan_action(data, message)
+            return
         if data.startswith("task:") and self.todoist is not None:
             self._task_action(data, message)
+
+    def _plan_action(self, data: str, message: dict) -> None:
+        from toy_lair_assistant.day_plan import plan_buttons, render
+
+        if data == "plan:redo":
+            plan = self.day_planner.build(self.now())
+            self.send_message(render(plan), buttons=plan_buttons(plan))
+            return
+        if not data.startswith("plan:apply:"):
+            return
+        plan_id = data.split(":", 2)[2]
+        plan = self.day_planner.apply(plan_id, self.now())
+        count = len(plan.suggested) if plan else 0
+        original = message.get("text") or message.get("caption") or ""
+        self.sender(
+            {
+                "_method": "editMessageText",
+                "chat_id": self.chat_id,
+                "message_id": message.get("message_id"),
+                "text": to_html(f"{original}\nApplied {count} slots."),
+                "parse_mode": "HTML",
+                "reply_markup": {"inline_keyboard": []},
+            }
+        )
 
     def _task_action(self, data: str, message: dict) -> None:
         parts = data.split(":")

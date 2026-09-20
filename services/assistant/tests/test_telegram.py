@@ -94,7 +94,9 @@ def test_telegram_logs_agent_line(caplog) -> None:
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from toy_lair_assistant.agent import AgentResult as _AgentResult
 from toy_lair_assistant.clients.telegram import to_html
+from toy_lair_assistant.day_plan import DayPlanner
 from toy_lair_assistant.models import CalendarEvent, Task
 from toy_lair_assistant.store import MemoryStore
 
@@ -285,6 +287,162 @@ def test_feedback_up_writes_store() -> None:
     ]
     assert sent[0]["_method"] == "answerCallbackQuery"
     assert sent[0]["text"] == "Noted"
+
+
+class _PlanLLM:
+    def complete(self, messages, tools):
+        return _AgentResult(
+            reply='{"scheduled":[{"ref":"t1","start":"13:00","minutes":60,"why":"slot"}],"anytime":[]}',
+            tool_calls=[],
+        )
+
+
+class _PlanTodoist:
+    def __init__(self) -> None:
+        self.updates: list[tuple[str, dict]] = []
+
+    def today(self):
+        return [
+            Task(
+                id="call",
+                content="Позвонить маме",
+                due_date="2026-09-20",
+                due_time="2026-09-20T12:00:00-07:00",
+                duration_minutes=30,
+                priority=4,
+            ),
+            Task(id="market", content="Рынок", due_date="2026-09-20"),
+        ]
+
+    def update(self, task_id: str, **fields) -> None:
+        self.updates.append((task_id, fields))
+
+
+class _EmptyCal:
+    def events_in_range(self, start, end):
+        return []
+
+
+class _Sync:
+    def __init__(self) -> None:
+        self.ran: list = []
+
+    def run(self, now) -> None:
+        self.ran.append(now)
+
+
+def _day_bot(sent, todoist=None, store=None, sync=None):
+    todoist = todoist or _PlanTodoist()
+    store = store or MemoryStore()
+    planner = DayPlanner(
+        todoist=todoist,
+        calendar=_EmptyCal(),
+        llm=_PlanLLM(),
+        settings=type(
+            "S",
+            (),
+            {
+                "timezone": "America/Los_Angeles",
+                "plan_hours_start": 10,
+                "plan_hours_end": 22,
+                "plan_horizon_days": 7,
+                "plan_default_minutes": 60,
+                "plan_weekends": True,
+            },
+        )(),
+        store=store,
+        task_sync=sync,
+    )
+    now = datetime(2026, 9, 20, 10, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+    bot = TelegramBot(
+        token="bot",
+        chat_id="111",
+        sender=lambda payload: sent.append(payload),
+        store=store,
+        todoist=todoist,
+        now=lambda: now,
+        day_planner=planner,
+        task_sync=sync,
+    )
+    return bot, todoist, planner
+
+
+def test_today_sends_schedule_with_apply() -> None:
+    sent: list[dict] = []
+    bot, _, _ = _day_bot(sent)
+    bot.handle_update(
+        {"message": {"chat": {"id": 111}, "text": "/today"}},
+        DayAgent(),
+        FakeSpeech(),
+    )
+    text = sent[0]["text"]
+    assert "<b>Today</b>" in text
+    assert "<b>Schedule</b>" in text
+    assert "~" in text
+    assert "Рынок" in text
+    buttons = sent[0]["reply_markup"]["inline_keyboard"][0]
+    assert buttons[0]["text"] == "✅ Apply plan"
+    assert buttons[0]["callback_data"].startswith("plan:apply:")
+    assert buttons[1]["text"] == "🔁 Reshuffle"
+    assert buttons[1]["callback_data"] == "plan:redo"
+
+
+def test_plan_apply_callback_updates_and_edits() -> None:
+    sent: list[dict] = []
+    sync = _Sync()
+    bot, todoist, planner = _day_bot(sent, sync=sync)
+    bot.handle_update(
+        {"message": {"chat": {"id": 111}, "text": "/today"}},
+        DayAgent(),
+        FakeSpeech(),
+    )
+    apply_data = sent[0]["reply_markup"]["inline_keyboard"][0][0]["callback_data"]
+    sent.clear()
+    bot.handle_update(
+        {
+            "callback_query": {
+                "id": "q3",
+                "data": apply_data,
+                "message": {
+                    "chat": {"id": 111},
+                    "message_id": 4,
+                    "text": "Today schedule",
+                },
+            }
+        },
+        DayAgent(),
+        FakeSpeech(),
+    )
+    assert [item[0] for item in todoist.updates] == ["market"]
+    assert sync.ran
+    edit = next(item for item in sent if item.get("_method") == "editMessageText")
+    assert "Applied 1 slots." in edit["text"]
+    assert edit["reply_markup"] == {"inline_keyboard": []}
+    assert planner.store.get_plan(apply_data.split(":")[-1]) is not None
+
+
+def test_plan_redo_sends_new_plan() -> None:
+    sent: list[dict] = []
+    bot, _, _ = _day_bot(sent)
+    bot.handle_update(
+        {"message": {"chat": {"id": 111}, "text": "/today"}},
+        DayAgent(),
+        FakeSpeech(),
+    )
+    sent.clear()
+    bot.handle_update(
+        {
+            "callback_query": {
+                "id": "q4",
+                "data": "plan:redo",
+                "message": {"chat": {"id": 111}, "message_id": 5, "text": "old"},
+            }
+        },
+        DayAgent(),
+        FakeSpeech(),
+    )
+    fresh = next(item for item in sent if item.get("text") and "Schedule" in item.get("text", ""))
+    assert "✅ Apply plan" in fresh["reply_markup"]["inline_keyboard"][0][0]["text"]
 
 
 def test_ensure_profile_once_a_day() -> None:

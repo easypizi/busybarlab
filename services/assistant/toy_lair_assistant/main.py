@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -19,6 +20,8 @@ from toy_lair_assistant.paths import creation_dir
 from toy_lair_assistant.settings import Settings
 from toy_lair_assistant.ticker import run_periodic
 from toy_lair_assistant.zayka_sync import attach_zayka
+
+LOG = logging.getLogger("toy_lair_assistant")
 
 
 @dataclass
@@ -147,6 +150,19 @@ def create_app(
             "reply": result.reply,
             "audio_base64": audio_b64,
         }
+
+    @app.post("/api/client-log")
+    def client_log(
+        payload: dict[str, Any],
+        x_assistant_token: str | None = Header(default=None),
+    ) -> dict[str, bool]:
+        _guard(x_assistant_token)
+        LOG.info(
+            "r1 client event=%s detail=%s",
+            payload.get("event"),
+            payload.get("detail"),
+        )
+        return {"ok": True}
 
     @app.post("/api/text")
     def text(

@@ -19,6 +19,14 @@
   var pairTimer = null;
   var recWanted = false;
   var peekOpen = false;
+  var stopWatch = null;
+  var MIME_TYPES = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/mp4",
+    "",
+  ];
 
   function $(id) {
     return document.getElementById(id);
@@ -68,6 +76,35 @@
 
   function headers() {
     return { "X-Assistant-Token": token };
+  }
+
+  function beacon(event, detail) {
+    if (!token) return;
+    try {
+      fetch(API + "/api/client-log", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, headers()),
+        body: JSON.stringify({ event: String(event || ""), detail: String(detail || "") }),
+      }).catch(function () {});
+    } catch (err) {}
+  }
+
+  function clipName(mime) {
+    var lower = String(mime || "").toLowerCase();
+    if (lower.indexOf("ogg") >= 0) return "clip.ogg";
+    if (lower.indexOf("mp4") >= 0 || lower.indexOf("m4a") >= 0) return "clip.m4a";
+    if (lower.indexOf("webm") >= 0) return "clip.webm";
+    return "clip.webm";
+  }
+
+  function pickMime() {
+    if (typeof MediaRecorder === "undefined") return null;
+    if (!MediaRecorder.isTypeSupported) return "";
+    for (var i = 0; i < MIME_TYPES.length; i++) {
+      var mime = MIME_TYPES[i];
+      if (!mime || MediaRecorder.isTypeSupported(mime)) return mime;
+    }
+    return "";
   }
 
   function needsBridge() {
@@ -369,26 +406,48 @@
       setStatus("no getUserMedia (need HTTPS)");
       return Promise.reject(new Error("no mic"));
     }
-    return navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then(function (stream) {
-        micStream = stream;
-        hideTapGate();
-        return stream;
-      });
+    var pending = navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      micStream = stream;
+      hideTapGate();
+      var tracks = stream.getAudioTracks ? stream.getAudioTracks().length : 0;
+      beacon("mic ok", String(tracks));
+      return stream;
+    });
+    var timed = new Promise(function (_, reject) {
+      setTimeout(function () {
+        var err = new Error("mic timeout");
+        err.name = "TimeoutError";
+        reject(err);
+      }, 3000);
+    });
+    return Promise.race([pending, timed]);
   }
 
   function beginRecorder() {
+    if (typeof MediaRecorder === "undefined") {
+      setStatus("no MediaRecorder");
+      beacon("recorder err", "no MediaRecorder");
+      recWanted = false;
+      document.body.classList.remove("recording");
+      return;
+    }
     chunks = [];
-    var mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-      ? "audio/webm;codecs=opus"
-      : "";
-    recorder = mime ? new MediaRecorder(micStream, { mimeType: mime }) : new MediaRecorder(micStream);
-    recorder.ondataavailable = function (ev) {
-      if (ev.data && ev.data.size) chunks.push(ev.data);
-    };
-    recorder.start();
-    setStatus("recording");
+    try {
+      var mime = pickMime();
+      recorder = mime ? new MediaRecorder(micStream, { mimeType: mime }) : new MediaRecorder(micStream);
+      recorder.ondataavailable = function (ev) {
+        if (ev.data && ev.data.size) chunks.push(ev.data);
+        setStatus("recording · " + chunks.length + " chunks");
+      };
+      recorder.start(250);
+      setStatus("recording · 0 chunks");
+      beacon("recorder start", recorder.mimeType || mime || "");
+    } catch (err) {
+      setStatus("rec: " + (err.name || err));
+      beacon("recorder err", err.name || String(err));
+      recWanted = false;
+      document.body.classList.remove("recording");
+    }
   }
 
   function startRec() {
@@ -398,14 +457,80 @@
     setStatus("arming mic");
     enableMic()
       .then(function () {
-        if (!recWanted) return;
+        if (!recWanted) {
+          beacon("end before mic", "");
+          return;
+        }
         beginRecorder();
       })
-      .catch(function () {
+      .catch(function (err) {
         recWanted = false;
         document.body.classList.remove("recording");
-        showTapGate();
+        var name = (err && err.name) || String(err && err.message) || "error";
+        if (name === "TimeoutError" || (err && err.message) === "mic timeout") {
+          setStatus("mic timeout");
+          beacon("mic timeout", name);
+          return;
+        }
+        setStatus("mic: " + name);
+        beacon("mic err", name);
+        if (name === "NotAllowedError") showTapGate();
       });
+  }
+
+  function sendClip(blob, mime) {
+    if (!blob.size) {
+      setStatus("empty clip (0 bytes)");
+      beacon("empty clip", mime || "");
+      return;
+    }
+    var body = new FormData();
+    body.append("audio", blob, clipName(mime));
+    setStatus("sending");
+    beacon("blob", blob.size + " " + (mime || ""));
+    fetch(API + "/api/voice", { method: "POST", headers: headers(), body: body })
+      .then(rejectIfUnauthorized)
+      .then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw new Error(data.detail || res.status);
+          return data;
+        });
+      })
+      .then(function (data) {
+        setReply(data.reply || "");
+        setStatus(data.transcript || "ok");
+        if (data.audio_base64) {
+          var audio = new Audio("data:audio/mpeg;base64," + data.audio_base64);
+          audio.play();
+        }
+        loadToday();
+      })
+      .catch(function (err) {
+        var text = String(err.message || err);
+        setStatus(text);
+        beacon("voice err", text);
+      });
+  }
+
+  function finishStop(reason) {
+    if (stopWatch) {
+      clearTimeout(stopWatch);
+      stopWatch = null;
+    }
+    if (!recorder) {
+      document.body.classList.remove("recording");
+      return;
+    }
+    var mime = recorder.mimeType || "audio/webm";
+    var blob = new Blob(chunks, { type: mime });
+    recorder = null;
+    document.body.classList.remove("recording");
+    if (reason === "stop timeout") {
+      setStatus("stop timeout");
+      beacon("stop timeout", String(blob.size));
+      if (!blob.size) return;
+    }
+    sendClip(blob, mime);
   }
 
   function stopRec() {
@@ -415,38 +540,17 @@
       return;
     }
     recorder.onstop = function () {
-      document.body.classList.remove("recording");
-      var blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-      recorder = null;
-      if (!blob.size) {
-        setStatus("hold PTT");
-        return;
-      }
-      var body = new FormData();
-      body.append("audio", blob, "clip.webm");
-      setStatus("sending");
-      fetch(API + "/api/voice", { method: "POST", headers: headers(), body: body })
-        .then(rejectIfUnauthorized)
-        .then(function (res) {
-          return res.json().then(function (data) {
-            if (!res.ok) throw new Error(data.detail || res.status);
-            return data;
-          });
-        })
-        .then(function (data) {
-          setReply(data.reply || "");
-          setStatus(data.transcript || "ok");
-          if (data.audio_base64) {
-            var audio = new Audio("data:audio/mpeg;base64," + data.audio_base64);
-            audio.play();
-          }
-          loadToday();
-        })
-        .catch(function (err) {
-          setStatus(String(err.message || err));
-        });
+      finishStop("onstop");
     };
-    recorder.stop();
+    try {
+      recorder.stop();
+    } catch (err) {
+      finishStop("stop timeout");
+      return;
+    }
+    stopWatch = setTimeout(function () {
+      finishStop("stop timeout");
+    }, 2000);
   }
 
   document.body.addEventListener(
@@ -521,17 +625,60 @@
   });
   window.addEventListener("sideClick", function () {
     logEvent("sideClick");
+    beacon("sideClick", "");
     if (recWanted) return;
     togglePeek();
   });
   window.addEventListener("longPressStart", function () {
     logEvent("longPressStart");
+    beacon("longPressStart", "");
     startRec();
   });
   window.addEventListener("longPressEnd", function () {
     logEvent("longPressEnd");
+    beacon("longPressEnd", "");
     stopRec();
   });
+
+  function bindHold(el) {
+    if (!el) return;
+    el.addEventListener(
+      "touchstart",
+      function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        startRec();
+      },
+      { passive: false }
+    );
+    el.addEventListener(
+      "touchend",
+      function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        stopRec();
+      },
+      { passive: false }
+    );
+    el.addEventListener(
+      "touchcancel",
+      function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        stopRec();
+      },
+      { passive: false }
+    );
+    el.addEventListener("mousedown", function (ev) {
+      ev.preventDefault();
+      startRec();
+    });
+    el.addEventListener("mouseup", function (ev) {
+      ev.preventDefault();
+      stopRec();
+    });
+  }
+  bindHold($("rec"));
 
   loadToken()
     .then(function () {

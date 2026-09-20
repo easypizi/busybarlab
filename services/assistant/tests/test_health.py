@@ -38,7 +38,7 @@ def test_creation_index_is_r1_sized() -> None:
     assert "storage: local" in script.text
     assert "storage failed" in script.text
     assert 'id="hint"' in body
-    assert "hold PTT talk" in body
+    assert "hold PTT or circle" in body
     assert "wheel today" in body
     assert "PTT click done" not in body
     assert "wheel select" not in body
@@ -64,6 +64,13 @@ def test_creation_index_is_r1_sized() -> None:
     script = client.get("/creation/app.js")
     assert "setReply" in script.text
     assert "scrollReply" in script.text
+    assert "client-log" in script.text
+    assert "audio/ogg" in script.text
+    assert "touchend" in script.text
+    assert "start(250)" in script.text
+    assert "mic timeout" in script.text
+    assert "stop timeout" in script.text
+    assert "empty clip" in script.text
     icon = client.get("/creation/icon.png")
     assert icon.status_code == 200
     assert icon.content[:8] == b"\x89PNG\r\n\x1a\n"

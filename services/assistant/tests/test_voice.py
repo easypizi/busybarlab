@@ -116,3 +116,25 @@ def test_voice_logs_agent_line_and_mirrors_long_reply(caplog) -> None:
     assert "todoist_add" in caplog.text
     assert "ms=" in caplog.text
     assert notify.sent == ["x" * 200]
+
+
+def test_client_log_requires_token() -> None:
+    app = create_app(Settings(assistant_api_token="secret"))
+    with TestClient(app) as client:
+        response = client.post("/api/client-log", json={"event": "longPressStart", "detail": ""})
+    assert response.status_code == 401
+
+
+def test_client_log_writes_line(caplog) -> None:
+    app = create_app(Settings(assistant_api_token="secret"))
+    with caplog.at_level(logging.INFO):
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/client-log",
+                headers={"X-Assistant-Token": "secret"},
+                json={"event": "mic timeout", "detail": "TimeoutError"},
+            )
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert "r1 client event=mic timeout" in caplog.text
+    assert "detail=TimeoutError" in caplog.text

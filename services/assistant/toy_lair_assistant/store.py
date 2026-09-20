@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -13,6 +14,7 @@ class MemoryStore:
         self.reminders: dict[str, Reminder] = {}
         self.turns: list[dict[str, Any]] = []
         self.feedback: list[dict[str, Any]] = []
+        self.plans: dict[str, dict[str, Any]] = {}
 
     def seen(self, key: str) -> bool:
         return key in self.keys
@@ -70,6 +72,15 @@ class MemoryStore:
             {"channel": channel, "turn": turn_id, "vote": vote, "at": at}
         )
 
+    def save_plan(self, plan_id: str, payload: dict[str, Any], at: datetime) -> None:
+        self.plans[plan_id] = {"payload": payload, "created_at": at}
+
+    def get_plan(self, plan_id: str) -> dict[str, Any] | None:
+        row = self.plans.get(plan_id)
+        if row is None:
+            return None
+        return row["payload"]
+
 
 class SqliteStore:
     def __init__(self, path: str = ":memory:") -> None:
@@ -100,6 +111,13 @@ class SqliteStore:
                 channel TEXT,
                 turn TEXT,
                 vote TEXT,
+                created_at TEXT
+            )"""
+        )
+        self.conn.execute(
+            """CREATE TABLE IF NOT EXISTS plans (
+                id TEXT PRIMARY KEY,
+                payload TEXT,
                 created_at TEXT
             )"""
         )
@@ -164,6 +182,22 @@ class SqliteStore:
         )
         self.conn.commit()
 
+    def save_plan(self, plan_id: str, payload: dict[str, Any], at: datetime) -> None:
+        self.conn.execute(
+            "INSERT OR REPLACE INTO plans(id, payload, created_at) VALUES (?, ?, ?)",
+            (plan_id, json.dumps(payload), at.isoformat()),
+        )
+        self.conn.commit()
+
+    def get_plan(self, plan_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT payload FROM plans WHERE id = ?", (plan_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        data = json.loads(row[0])
+        return data if isinstance(data, dict) else None
+
 
 def open_store(database_url: str) -> Any:
     if not database_url:
@@ -208,6 +242,13 @@ class PostgresStore:
                     channel TEXT,
                     turn TEXT,
                     vote TEXT,
+                    created_at TEXT
+                )"""
+            )
+            cur.execute(
+                """CREATE TABLE IF NOT EXISTS plans (
+                    id TEXT PRIMARY KEY,
+                    payload TEXT,
                     created_at TEXT
                 )"""
             )
@@ -283,3 +324,23 @@ class PostgresStore:
                 (channel, turn_id, vote, at.isoformat()),
             )
         self.conn.commit()
+
+    def save_plan(self, plan_id: str, payload: dict[str, Any], at: datetime) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO plans(id, payload, created_at)
+                   VALUES (%s, %s, %s)
+                   ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload,
+                   created_at = EXCLUDED.created_at""",
+                (plan_id, json.dumps(payload), at.isoformat()),
+            )
+        self.conn.commit()
+
+    def get_plan(self, plan_id: str) -> dict[str, Any] | None:
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT payload FROM plans WHERE id = %s", (plan_id,))
+            row = cur.fetchone()
+        if row is None:
+            return None
+        data = json.loads(row[0])
+        return data if isinstance(data, dict) else None

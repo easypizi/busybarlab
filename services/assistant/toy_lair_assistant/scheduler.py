@@ -21,6 +21,7 @@ class Scheduler:
         timezone: str = "America/Los_Angeles",
         settings: Any = None,
         task_sync: Any = None,
+        day_planner: Any = None,
     ) -> None:
         self.todoist = todoist
         self.calendar = calendar
@@ -31,6 +32,7 @@ class Scheduler:
         self.timezone = timezone
         self.settings = settings
         self.task_sync = task_sync
+        self.day_planner = day_planner
         self._last_sync: datetime | None = None
 
     def tick(self, now: datetime) -> int:
@@ -174,23 +176,31 @@ class Scheduler:
             lines.extend(
                 f"- {task.content} {task.deadline[:10]}" for task in deadlines
             )
-        if today:
-            lines.append("**Today**")
-            for task in today:
-                mark = "🔴 " if int(task.priority or 1) >= 4 else ""
-                lines.append(f"- {mark}{task.content}".rstrip())
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        events = [
-            event
-            for event in self.calendar.events_in_range(start, start + timedelta(days=1))
-            if not getattr(event, "todoist_id", None)
-        ]
-        if events:
-            lines.append("**Events**")
-            for event in events:
-                when = event.start[11:16] if len(event.start) >= 16 else event.start
-                lines.append(f"- {event.title} {when}".rstrip())
-        self._send("\n".join(lines))
+        buttons = None
+        if self.day_planner is not None:
+            from toy_lair_assistant.day_plan import plan_buttons, render
+
+            plan = self.day_planner.build(now)
+            lines.append(render(plan))
+            buttons = plan_buttons(plan)
+        else:
+            if today:
+                lines.append("**Today**")
+                for task in today:
+                    mark = "🔴 " if int(task.priority or 1) >= 4 else ""
+                    lines.append(f"- {mark}{task.content}".rstrip())
+            start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            events = [
+                event
+                for event in self.calendar.events_in_range(start, start + timedelta(days=1))
+                if not getattr(event, "todoist_id", None)
+            ]
+            if events:
+                lines.append("**Events**")
+                for event in events:
+                    when = event.start[11:16] if len(event.start) >= 16 else event.start
+                    lines.append(f"- {event.title} {when}".rstrip())
+        self._send("\n".join(lines), buttons=buttons)
         self.store.mark(key)
         return 1
 
