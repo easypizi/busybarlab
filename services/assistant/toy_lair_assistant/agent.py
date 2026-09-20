@@ -1,17 +1,24 @@
 from __future__ import annotations
 
+import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from toy_lair_assistant.clients.gcal import GoogleAuthExpired
 from toy_lair_assistant.models import CalendarEvent, Task
+
+CONFIRM_RE = re.compile(r"\b(yes|yep|yeah|confirm|да|ок|ok)\b", re.IGNORECASE)
+DESTRUCTIVE = {"gcal_delete"}
 
 
 @dataclass
 class ToolCall:
     name: str
     arguments: dict[str, Any]
+    call_id: str = ""
 
 
 @dataclass
@@ -53,37 +60,159 @@ class Agent:
 
     def today_payload(self, now: datetime) -> dict[str, Any]:
         items: list[dict[str, Any]] = []
-        for event in self.calendar.events_for_day(now):
-            items.append(self._event_item(event))
-        for task in self.todoist.today():
-            items.append(self._task_item(task))
+        for index, event in enumerate(self.calendar.events_for_day(now), start=1):
+            item = self._event_item(event)
+            item["ref"] = f"e{index}"
+            items.append(item)
+        for index, task in enumerate(self.todoist.today(), start=1):
+            item = self._task_item(task)
+            item["ref"] = f"t{index}"
+            items.append(item)
         return {"items": items}
 
     def handle_text(self, text: str, channel: str = "r1") -> AgentResult:
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a personal assistant for Todoist and Google Calendar. "
-                    "Use tools to change data. Reply briefly."
-                ),
-            },
-            {"role": "user", "content": text},
+        now = self.now()
+        try:
+            events, tasks, task_map, event_map = self._catalog(now)
+        except GoogleAuthExpired:
+            return AgentResult(reply="Calendar auth expired.")
+        system = self._system_prompt(now, tasks, events)
+        messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
+        if self.store is not None and hasattr(self.store, "recent_turns"):
+            for turn in self.store.recent_turns(channel, now, limit=6, ttl_minutes=15):
+                messages.append({"role": turn["role"], "content": turn["content"]})
+        messages.append({"role": "user", "content": text})
+        confirmed = self._confirmed(text, messages)
+        last = AgentResult(reply="ok")
+        for _round in range(3):
+            last = self.llm.complete(messages, list(self.tools))
+            if not last.tool_calls:
+                break
+            blocked, notes, executed = self._run_tools(
+                last.tool_calls, task_map, event_map, confirmed
+            )
+            if blocked:
+                last = AgentResult(reply=blocked, tool_calls=last.tool_calls)
+                break
+            messages.append(self._assistant_tool_message(last))
+            for call, note in zip(executed, notes):
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.call_id or call.name,
+                        "content": note,
+                    }
+                )
+        reply = last.reply or "ok"
+        self._remember(channel, text, reply, now)
+        return AgentResult(reply=reply, tool_calls=last.tool_calls)
+
+    def _catalog(
+        self, now: datetime
+    ) -> tuple[list[CalendarEvent], list[Task], dict[str, str], dict[str, str]]:
+        events = list(self.calendar.events_for_day(now))
+        tasks = list(self.todoist.today())
+        task_map = {f"t{i}": task.id for i, task in enumerate(tasks, start=1)}
+        event_map = {f"e{i}": event.id for i, event in enumerate(events, start=1)}
+        return events, tasks, task_map, event_map
+
+    def _system_prompt(
+        self, now: datetime, tasks: list[Task], events: list[CalendarEvent]
+    ) -> str:
+        zone = getattr(now.tzinfo, "key", None) or str(now.tzinfo or "UTC")
+        lines = [
+            "You are a personal assistant for Todoist and Google Calendar.",
+            f"Now: {now.strftime('%Y-%m-%d %H:%M')} {zone}.",
+            "Reply briefly for speech. One or two sentences.",
+            "Refer to tasks as t1, t2 and events as e1, e2. Use tools to change data.",
+            "Deleting events or completing more than one task needs a confirm word.",
+            "Tasks:",
         ]
-        result = self.llm.complete(messages, list(self.tools))
+        if not tasks:
+            lines.append("(none)")
+        for index, task in enumerate(tasks, start=1):
+            when = task.due_string or task.due_date or ""
+            lines.append(f"t{index} {task.content} {when} id={task.id}".strip())
+        lines.append("Events:")
+        if not events:
+            lines.append("(none)")
+        for index, event in enumerate(events, start=1):
+            when = event.start[11:16] if len(event.start) >= 16 else event.start
+            lines.append(f"e{index} {event.title} {when} id={event.id}".strip())
+        return "\n".join(lines)
+
+    def _confirmed(self, text: str, messages: list[dict[str, Any]]) -> bool:
+        blob = " ".join(
+            str(m.get("content") or "")
+            for m in messages
+            if m.get("role") == "user"
+        )
+        blob = f"{blob} {text}"
+        return bool(CONFIRM_RE.search(blob))
+
+    def _run_tools(
+        self,
+        calls: list[ToolCall],
+        task_map: dict[str, str],
+        event_map: dict[str, str],
+        confirmed: bool,
+    ) -> tuple[str | None, list[str], list[ToolCall]]:
+        completes = sum(1 for call in calls if call.name == "todoist_complete")
+        needs_confirm = any(call.name in DESTRUCTIVE for call in calls) or completes > 1
+        if needs_confirm and not confirmed:
+            return ("Say confirm to delete that event.", [], [])
         notes: list[str] = []
-        for call in result.tool_calls:
+        executed: list[ToolCall] = []
+        for index, call in enumerate(calls):
+            if not call.call_id:
+                call.call_id = f"call{index}"
             handler = self.tools.get(call.name)
             if handler is None:
                 notes.append(f"unknown tool {call.name}")
+                executed.append(call)
                 continue
-            notes.append(str(handler(**call.arguments)))
-        reply = result.reply
-        if notes and reply:
-            return AgentResult(reply=reply, tool_calls=result.tool_calls)
-        if notes and not reply:
-            return AgentResult(reply="\n".join(notes), tool_calls=result.tool_calls)
-        return AgentResult(reply=reply or "ok", tool_calls=result.tool_calls)
+            args = self._resolve(call.arguments, task_map, event_map)
+            notes.append(str(handler(**args)))
+            executed.append(call)
+        return (None, notes, executed)
+
+    def _resolve(
+        self,
+        arguments: dict[str, Any],
+        task_map: dict[str, str],
+        event_map: dict[str, str],
+    ) -> dict[str, Any]:
+        out = dict(arguments)
+        if "task_id" in out:
+            key = str(out["task_id"])
+            out["task_id"] = task_map.get(key, key)
+        if "event_id" in out:
+            key = str(out["event_id"])
+            out["event_id"] = event_map.get(key, key)
+        return out
+
+    def _assistant_tool_message(self, result: AgentResult) -> dict[str, Any]:
+        return {
+            "role": "assistant",
+            "content": result.reply or None,
+            "tool_calls": [
+                {
+                    "id": call.call_id or call.name,
+                    "type": "function",
+                    "function": {
+                        "name": call.name,
+                        "arguments": json.dumps(call.arguments),
+                    },
+                }
+                for call in result.tool_calls
+            ],
+        }
+
+    def _remember(self, channel: str, user: str, reply: str, now: datetime) -> None:
+        if self.store is None or not hasattr(self.store, "add_turn"):
+            return
+        self.store.add_turn(channel, "user", user, now)
+        self.store.add_turn(channel, "assistant", reply, now)
 
     def _task_item(self, task: Task) -> dict[str, Any]:
         return {
@@ -140,7 +269,9 @@ class Agent:
     def _reminder(self, fire_at: str, text: str) -> str:
         if self.store is None:
             return "Reminders are not configured."
-        self.store.add_reminder(fire_at.replace(":", "").replace("-", "")[:16], _parse_dt(fire_at), text)
+        self.store.add_reminder(
+            fire_at.replace(":", "").replace("-", "")[:16], _parse_dt(fire_at), text
+        )
         return f"Reminder set for {fire_at}."
 
     def _zayka_search(self, query: str) -> str:

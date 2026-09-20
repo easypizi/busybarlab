@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -35,6 +36,7 @@ class Settings(BaseSettings):
     creation_public_url: str = ""
     tick_interval_seconds: float = 60
     zayka_sync_interval_seconds: float = 3600
+    zayka_sync_enabled: bool = True
 
     def creation_origin(self) -> str:
         url = self.creation_public_url.strip()
@@ -49,3 +51,10 @@ class Settings(BaseSettings):
         if not self.zayka_dir:
             return None
         return Path(self.zayka_dir)
+
+    def zayka_should_sync(self) -> bool:
+        if not self.zayka_sync_enabled or not self.zayka_dir:
+            return False
+        if os.environ.get("PYTEST_CURRENT_TEST"):
+            return False
+        return True

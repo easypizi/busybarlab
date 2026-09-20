@@ -12,6 +12,10 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 API_ROOT = "https://www.googleapis.com/calendar/v3"
 
 
+class GoogleAuthExpired(Exception):
+    pass
+
+
 class GoogleCalendarClient:
     def __init__(
         self,
@@ -22,6 +26,7 @@ class GoogleCalendarClient:
         http: httpx.Client | None = None,
         now: Callable[[], datetime] | None = None,
         timezone: str = "America/Los_Angeles",
+        on_auth_error: Callable[[], None] | None = None,
     ) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
@@ -30,6 +35,7 @@ class GoogleCalendarClient:
         self.http = http or httpx.Client(timeout=30)
         self.now = now
         self.timezone = timezone
+        self.on_auth_error = on_auth_error
         self._access_token: str | None = None
         self._owns_http = http is None
 
@@ -54,7 +60,13 @@ class GoogleCalendarClient:
                 "grant_type": "refresh_token",
             },
         )
-        response.raise_for_status()
+        if response.status_code >= 400:
+            body = response.text
+            if "invalid_grant" in body or response.status_code == 401:
+                if self.on_auth_error:
+                    self.on_auth_error()
+                raise GoogleAuthExpired("Google calendar auth expired")
+            response.raise_for_status()
         self._access_token = response.json()["access_token"]
         return self._access_token
 

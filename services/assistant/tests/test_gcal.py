@@ -89,3 +89,29 @@ def test_move_and_delete() -> None:
     client.delete("e1")
     assert "PATCH" in methods
     assert "DELETE" in methods
+
+
+def test_invalid_grant_calls_on_auth_error() -> None:
+    alerts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/token":
+            return httpx.Response(400, json={"error": "invalid_grant"})
+        return httpx.Response(500)
+
+    client = GoogleCalendarClient(
+        client_id="id",
+        client_secret="sec",
+        refresh_token="ref",
+        http=httpx.Client(transport=httpx.MockTransport(handler)),
+        now=lambda: datetime(2026, 9, 19, 11, 0, tzinfo=ZoneInfo("America/Los_Angeles")),
+        on_auth_error=lambda: alerts.append("expired"),
+    )
+    from toy_lair_assistant.clients.gcal import GoogleAuthExpired
+
+    try:
+        client.events_for_day()
+        raise AssertionError("expected GoogleAuthExpired")
+    except GoogleAuthExpired:
+        pass
+    assert alerts == ["expired"]

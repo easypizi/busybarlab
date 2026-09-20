@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from toy_lair_assistant.models import Reminder
@@ -11,6 +11,7 @@ class MemoryStore:
     def __init__(self) -> None:
         self.keys: set[str] = set()
         self.reminders: dict[str, Reminder] = {}
+        self.turns: list[dict[str, Any]] = []
 
     def seen(self, key: str) -> bool:
         return key in self.keys
@@ -40,6 +41,29 @@ class MemoryStore:
         if reminder:
             reminder.sent = True
 
+    def add_turn(self, channel: str, role: str, content: str, at: datetime) -> None:
+        self.turns.append(
+            {"channel": channel, "role": role, "content": content, "at": at}
+        )
+
+    def recent_turns(
+        self,
+        channel: str,
+        now: datetime,
+        limit: int = 6,
+        ttl_minutes: int = 15,
+    ) -> list[dict[str, str]]:
+        cutoff = now - timedelta(minutes=ttl_minutes)
+        kept = [
+            turn
+            for turn in self.turns
+            if turn["channel"] == channel and turn["at"] >= cutoff
+        ]
+        return [
+            {"role": str(turn["role"]), "content": str(turn["content"])}
+            for turn in kept[-limit:]
+        ]
+
 
 class SqliteStore:
     def __init__(self, path: str = ":memory:") -> None:
@@ -53,6 +77,15 @@ class SqliteStore:
                 fire_at TEXT,
                 text TEXT,
                 sent INTEGER
+            )"""
+        )
+        self.conn.execute(
+            """CREATE TABLE IF NOT EXISTS turns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel TEXT,
+                role TEXT,
+                content TEXT,
+                created_at TEXT
             )"""
         )
         self.conn.commit()
@@ -86,6 +119,29 @@ class SqliteStore:
         self.conn.execute("UPDATE reminders SET sent = 1 WHERE id = ?", (reminder_id,))
         self.conn.commit()
 
+    def add_turn(self, channel: str, role: str, content: str, at: datetime) -> None:
+        self.conn.execute(
+            "INSERT INTO turns(channel, role, content, created_at) VALUES (?, ?, ?, ?)",
+            (channel, role, content, at.isoformat()),
+        )
+        self.conn.commit()
+
+    def recent_turns(
+        self,
+        channel: str,
+        now: datetime,
+        limit: int = 6,
+        ttl_minutes: int = 15,
+    ) -> list[dict[str, str]]:
+        cutoff = (now - timedelta(minutes=ttl_minutes)).isoformat()
+        rows = self.conn.execute(
+            """SELECT role, content FROM turns
+               WHERE channel = ? AND created_at >= ?
+               ORDER BY id ASC""",
+            (channel, cutoff),
+        ).fetchall()
+        return [{"role": r[0], "content": r[1]} for r in rows[-limit:]]
+
 
 def open_store(database_url: str) -> Any:
     if not database_url:
@@ -113,6 +169,15 @@ class PostgresStore:
                     fire_at TEXT,
                     text TEXT,
                     sent INTEGER
+                )"""
+            )
+            cur.execute(
+                """CREATE TABLE IF NOT EXISTS turns (
+                    id SERIAL PRIMARY KEY,
+                    channel TEXT,
+                    role TEXT,
+                    content TEXT,
+                    created_at TEXT
                 )"""
             )
         self.conn.commit()
@@ -153,3 +218,29 @@ class PostgresStore:
         with self.conn.cursor() as cur:
             cur.execute("UPDATE reminders SET sent = 1 WHERE id = %s", (reminder_id,))
         self.conn.commit()
+
+    def add_turn(self, channel: str, role: str, content: str, at: datetime) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO turns(channel, role, content, created_at) VALUES (%s, %s, %s, %s)",
+                (channel, role, content, at.isoformat()),
+            )
+        self.conn.commit()
+
+    def recent_turns(
+        self,
+        channel: str,
+        now: datetime,
+        limit: int = 6,
+        ttl_minutes: int = 15,
+    ) -> list[dict[str, str]]:
+        cutoff = (now - timedelta(minutes=ttl_minutes)).isoformat()
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """SELECT role, content FROM turns
+                   WHERE channel = %s AND created_at >= %s
+                   ORDER BY id ASC""",
+                (channel, cutoff),
+            )
+            rows = cur.fetchall()
+        return [{"role": r[0], "content": r[1]} for r in rows[-limit:]]

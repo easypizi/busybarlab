@@ -5,7 +5,7 @@ Sources: rabbit-hmi-oss/creations-sdk plugin-demo, ShayneP/rabbit-r1-livekit-ski
 - Viewport: 240x282, fixed.
 - HTTPS required for microphone.
 - No WebGL. Canvas 2D only.
-- First mic access needs a tap on the screen, then PTT long-press can record.
+- First mic access often needs a screen tap. Prefer requesting `getUserMedia` on `longPressStart`. If that fails, show a one-time tap gate, then PTT can record.
 - `longPressStart` / `longPressEnd` on the side button are the PTT pair.
 - `setMicrophoneEnabled()` is unreliable. Use `getUserMedia` then, if using WebRTC later, `publishTrack()`.
 - Touch: bind `touchstart` on `document.body` and call `preventDefault()`.

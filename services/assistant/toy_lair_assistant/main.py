@@ -76,7 +76,10 @@ def create_app(
                     run_periodic(_tick, deps.settings.tick_interval_seconds)
                 )
             )
-        if deps.settings.zayka_dir and deps.settings.zayka_sync_interval_seconds > 0:
+        if (
+            deps.settings.zayka_should_sync()
+            and deps.settings.zayka_sync_interval_seconds > 0
+        ):
             tasks.append(
                 asyncio.create_task(
                     run_periodic(
@@ -124,9 +127,18 @@ def create_app(
         if deps.speech is None or deps.agent is None:
             raise HTTPException(status_code=503, detail="voice is not configured")
         data = await audio.read()
-        transcript = deps.speech.transcribe(data, audio.content_type or "audio/webm")
-        result = deps.agent.handle_text(transcript, channel="r1")
-        audio_b64 = deps.speech.speak(result.reply)
+        try:
+            transcript = deps.speech.transcribe(data, audio.content_type or "audio/webm")
+        except Exception as exc:
+            return {"transcript": "", "reply": str(exc), "audio_base64": ""}
+        try:
+            result = deps.agent.handle_text(transcript, channel="r1")
+        except Exception as exc:
+            return {"transcript": transcript, "reply": str(exc), "audio_base64": ""}
+        try:
+            audio_b64 = deps.speech.speak(result.reply)
+        except Exception:
+            audio_b64 = ""
         return {
             "transcript": transcript,
             "reply": result.reply,

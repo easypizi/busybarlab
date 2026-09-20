@@ -38,6 +38,16 @@ def test_creation_index_is_r1_sized() -> None:
     assert "storage: local" in script.text
     assert "storage failed" in script.text
     assert 'id="hint"' in body
-    assert "wheel select" in body
-    assert "PTT click done" in body
     assert "hold PTT talk" in body
+    assert "wheel today" in body
+    assert "PTT click done" not in body
+    assert "wheel select" not in body
+    assert 'id="rec"' in body
+    assert 'id="count"' in body
+    assert 'id="tap-gate"' in body
+    assert 'id="peek"' in body
+    assert "recWanted" in script.text
+    assert "enableMic" in script.text
+    assert "tap once for mic" in script.text
+    assert "completeSelected" not in script.text
+    assert "togglePeek" in script.text

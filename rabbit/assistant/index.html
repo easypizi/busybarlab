@@ -9,14 +9,19 @@
 <body>
   <main id="app">
     <header>
-      <h1>today</h1>
-      <p id="status">tap to enable mic</p>
+      <h1>toy lair</h1>
+      <p id="status">hold PTT</p>
+      <p id="count"></p>
       <p id="pair"></p>
     </header>
-    <ol id="list"></ol>
-    <p id="reply"></p>
+    <div id="rec" aria-hidden="true"></div>
+    <p id="reply">hold PTT and talk</p>
+    <div id="tap-gate" hidden>tap once for mic</div>
+    <section id="peek" hidden>
+      <ol id="list"></ol>
+    </section>
     <p id="event-log"></p>
-    <p id="hint">wheel select · PTT click done · hold PTT talk</p>
+    <p id="hint">hold PTT talk · wheel today</p>
   </main>
   <script src="app.js"></script>
 </body>

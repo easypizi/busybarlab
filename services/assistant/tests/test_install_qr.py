@@ -54,8 +54,8 @@ def test_creation_page_url() -> None:
 
 def test_creation_target_url_prefers_public_host() -> None:
     assert (
-        creation_target_url("https://heroku.example/", "https://easypizi.github.io/busybarlab")
-        == "https://easypizi.github.io/busybarlab/"
+        creation_target_url("https://heroku.example/", "https://easypizi.github.io/toy_lair")
+        == "https://easypizi.github.io/toy_lair/"
     )
     assert creation_target_url("https://heroku.example/", "") == "https://heroku.example/creation/"
 

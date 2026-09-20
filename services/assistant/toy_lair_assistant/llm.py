@@ -173,7 +173,7 @@ class OpenAILLM:
         self.model = model
         self.http = http or httpx.Client(timeout=60)
 
-    def complete(self, messages: list[dict[str, str]], tools: list[str]) -> AgentResult:
+    def complete(self, messages: list[dict[str, Any]], tools: list[str]) -> AgentResult:
         selected = [schema for schema in TOOL_SCHEMAS if schema["function"]["name"] in tools]
         response = self.http.post(
             "https://api.openai.com/v1/chat/completions",
@@ -187,11 +187,17 @@ class OpenAILLM:
         response.raise_for_status()
         message = response.json()["choices"][0]["message"]
         calls: list[ToolCall] = []
-        for raw in message.get("tool_calls") or []:
+        for index, raw in enumerate(message.get("tool_calls") or []):
             fn = raw.get("function") or {}
             args = fn.get("arguments") or "{}"
             parsed = json.loads(args) if isinstance(args, str) else args
-            calls.append(ToolCall(name=fn.get("name"), arguments=parsed or {}))
+            calls.append(
+                ToolCall(
+                    name=fn.get("name"),
+                    arguments=parsed or {},
+                    call_id=str(raw.get("id") or f"call{index}"),
+                )
+            )
         return AgentResult(reply=str(message.get("content") or "").strip(), tool_calls=calls)
 
 

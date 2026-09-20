@@ -10,7 +10,7 @@ def test_pair_start_allows_pages_origin() -> None:
             assistant_api_token="secret",
             tick_interval_seconds=0,
             zayka_dir="",
-            creation_public_url="https://easypizi.github.io/busybarlab/",
+            creation_public_url="https://easypizi.github.io/toy_lair/",
         )
     )
     with TestClient(app) as client:
@@ -25,4 +25,4 @@ def test_pair_start_allows_pages_origin() -> None:
     assert res.status_code == 200
     assert res.headers.get("access-control-allow-origin") == "https://easypizi.github.io"
     assert info.status_code == 200
-    assert info.json()["url"] == "https://easypizi.github.io/busybarlab/"
+    assert info.json()["url"] == "https://easypizi.github.io/toy_lair/"

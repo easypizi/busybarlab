@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from toy_lair_assistant.agent import Agent
 from toy_lair_assistant.clients.gcal import GoogleCalendarClient
 from toy_lair_assistant.clients.telegram import TelegramBot
+from toy_lair_assistant.google_alert import make_auth_alerter
 from toy_lair_assistant.clients.todoist import TodoistClient
 from toy_lair_assistant.clock import Clock
 from toy_lair_assistant.llm import EchoLLM, OpenAILLM
@@ -37,6 +38,15 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             now=clock.now,
             timezone=settings.timezone,
         )
+    notify = None
+    if settings.telegram_bot_token and settings.telegram_chat_id:
+        notify = TelegramBot(settings.telegram_bot_token, settings.telegram_chat_id)
+    if calendar is not None:
+        calendar.on_auth_error = make_auth_alerter(
+            store,
+            notify.send_text if notify else (lambda text: None),
+            clock.now,
+        )
     zayka = None
     zayka_dir = settings.zayka_path()
     if zayka_dir and Path(zayka_dir).exists():
@@ -62,9 +72,6 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         if settings.openai_api_key
         else SilentSpeech()
     )
-    notify = None
-    if settings.telegram_bot_token and settings.telegram_chat_id:
-        notify = TelegramBot(settings.telegram_bot_token, settings.telegram_chat_id)
     app = create_app(
         settings,
         clock=clock,

@@ -9,14 +9,55 @@ html, body {
 }
 #app { padding: 8px; height: 100%; display: flex; flex-direction: column; }
 header h1 { font-size: 16px; }
-#status, #event-log, #reply, #hint { font-size: 11px; color: #bbb; margin-top: 4px; }
+#status, #count, #event-log, #hint { font-size: 11px; color: #bbb; margin-top: 4px; }
 #hint { color: #888; }
+#count { color: #8fd18f; }
 #pair {
   font: 700 42px/1.1 -apple-system, sans-serif;
   letter-spacing: 0.16em;
   margin-top: 10px;
 }
-#list { list-style: none; flex: 1; overflow: hidden; margin-top: 8px; }
+#rec {
+  width: 56px;
+  height: 56px;
+  margin: 16px auto 8px;
+  border-radius: 50%;
+  border: 3px solid #444;
+  background: #222;
+}
+.recording #rec {
+  border-color: #ff6b6b;
+  background: #ff6b6b;
+}
+#reply {
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.35;
+  overflow: hidden;
+  margin-top: 8px;
+}
+#tap-gate {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.86);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 18px;
+  padding: 16px;
+  z-index: 4;
+}
+#tap-gate[hidden] { display: none; }
+#peek {
+  flex: 1;
+  overflow: hidden;
+  margin-top: 8px;
+}
+#peek[hidden] { display: none; }
+.peek-open #rec, .peek-open #reply { display: none; }
+#list { list-style: none; height: 100%; overflow: hidden; }
 #list li {
   min-height: 44px;
   padding: 8px 6px;
@@ -24,5 +65,4 @@ header h1 { font-size: 16px; }
 }
 #list li.selected { background: #2a4a2a; }
 #list .kind { color: #8fd18f; font-size: 10px; }
-#reply { max-height: 54px; overflow: hidden; }
 .recording #status { color: #ff6b6b; }

@@ -17,6 +17,8 @@
   var lastEvent = "";
   var storageSource = "";
   var pairTimer = null;
+  var recWanted = false;
+  var peekOpen = false;
 
   function $(id) {
     return document.getElementById(id);
@@ -219,6 +221,7 @@
 
   function startPairing() {
     stopPairing();
+    setPeek(false);
     setStatus("pairing");
     fetch(API + "/api/pair/start", { method: "POST" })
       .then(function (res) {
@@ -263,9 +266,24 @@
     });
   }
 
+  function setPeek(open) {
+    peekOpen = !!open;
+    $("peek").hidden = !peekOpen;
+    document.body.classList.toggle("peek-open", peekOpen);
+  }
+
+  function togglePeek() {
+    setPeek(!peekOpen);
+    if (peekOpen) render();
+  }
+
   function selectItem(index) {
     selected = index;
     render();
+  }
+
+  function updateCount() {
+    $("count").textContent = items.length ? items.length + " today" : "nothing today";
   }
 
   function render() {
@@ -311,7 +329,7 @@
       .then(function (data) {
         items = data.items || [];
         selected = 0;
-        setStatus(items.length + " items");
+        updateCount();
         render();
       })
       .catch(function (err) {
@@ -319,17 +337,13 @@
       });
   }
 
-  function completeSelected() {
-    var item = items[selected];
-    if (!item || item.kind !== "task") return;
-    fetch(API + "/api/tasks/" + encodeURIComponent(item.id) + "/complete", {
-      method: "POST",
-      headers: headers(),
-    })
-      .then(rejectIfUnauthorized)
-      .then(function (res) {
-        if (res.ok) loadToday();
-      });
+  function showTapGate() {
+    $("tap-gate").hidden = false;
+    setStatus("tap once for mic");
+  }
+
+  function hideTapGate() {
+    $("tap-gate").hidden = true;
   }
 
   function enableMic() {
@@ -342,16 +356,12 @@
       .getUserMedia({ audio: true })
       .then(function (stream) {
         micStream = stream;
-        setStatus("mic ready, hold PTT");
+        hideTapGate();
         return stream;
       });
   }
 
-  function startRec() {
-    if (!micStream) {
-      setStatus("tap screen first");
-      return;
-    }
+  function beginRecorder() {
     chunks = [];
     var mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
       ? "audio/webm;codecs=opus"
@@ -361,15 +371,40 @@
       if (ev.data && ev.data.size) chunks.push(ev.data);
     };
     recorder.start();
+    setStatus("recording");
+  }
+
+  function startRec() {
+    recWanted = true;
+    setPeek(false);
     document.body.classList.add("recording");
-    setStatus("recording " + recorder.mimeType);
+    setStatus("arming mic");
+    enableMic()
+      .then(function () {
+        if (!recWanted) return;
+        beginRecorder();
+      })
+      .catch(function () {
+        recWanted = false;
+        document.body.classList.remove("recording");
+        showTapGate();
+      });
   }
 
   function stopRec() {
-    if (!recorder) return;
+    recWanted = false;
+    if (!recorder) {
+      document.body.classList.remove("recording");
+      return;
+    }
     recorder.onstop = function () {
       document.body.classList.remove("recording");
       var blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      recorder = null;
+      if (!blob.size) {
+        setStatus("hold PTT");
+        return;
+      }
       var body = new FormData();
       body.append("audio", blob, "clip.webm");
       setStatus("sending");
@@ -401,24 +436,65 @@
     "touchstart",
     function (ev) {
       ev.preventDefault();
-      enableMic().catch(function () {});
+      enableMic()
+        .then(function () {
+          hideTapGate();
+          if ($("status").textContent === "tap once for mic") setStatus("hold PTT");
+        })
+        .catch(function () {
+          showTapGate();
+        });
+    },
+    { passive: false }
+  );
+
+  $("tap-gate").addEventListener(
+    "touchstart",
+    function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      enableMic()
+        .then(function () {
+          hideTapGate();
+          setStatus("hold PTT");
+        })
+        .catch(function () {
+          showTapGate();
+        });
     },
     { passive: false }
   );
 
   window.addEventListener("scrollUp", function () {
     logEvent("scrollUp");
+    if (recWanted) return;
+    if (!peekOpen) {
+      setPeek(true);
+      render();
+      return;
+    }
+    if (selected === 0) {
+      setPeek(false);
+      return;
+    }
     selected = Math.max(0, selected - 1);
     render();
   });
   window.addEventListener("scrollDown", function () {
     logEvent("scrollDown");
+    if (recWanted) return;
+    if (!peekOpen) {
+      setPeek(true);
+      render();
+      return;
+    }
     selected = Math.min(Math.max(items.length - 1, 0), selected + 1);
     render();
   });
   window.addEventListener("sideClick", function () {
     logEvent("sideClick");
-    completeSelected();
+    if (recWanted) return;
+    togglePeek();
   });
   window.addEventListener("longPressStart", function () {
     logEvent("longPressStart");

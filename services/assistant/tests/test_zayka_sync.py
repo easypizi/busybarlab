@@ -91,3 +91,8 @@ def test_attach_zayka_sets_agent_index(tmp_path: Path) -> None:
     assert Deps.zayka is not None
     assert Deps.agent.zayka is Deps.zayka
     assert Deps.zayka.read("Home.md") == "hello\n"
+
+
+def test_settings_skip_auto_sync_under_pytest() -> None:
+    settings = Settings(zayka_dir="/tmp/zayka", zayka_sync_enabled=True)
+    assert settings.zayka_should_sync() is False

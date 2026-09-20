@@ -43,7 +43,7 @@ Python 3.12. Config vars only, no secrets in git.
 ## Out of scope for the hello gate (implemented in later phases, same app)
 
 - Phase 1: Todoist v1 + Google Calendar clients, Telegram text bot, agent tools.
-- Phase 2: Today list UI, wheel navigation, `sideClick` completes a task.
+- Phase 2: Today list UI. Superseded by Talk home: [2026-09-19-r1-talk-home-design.md](2026-09-19-r1-talk-home-design.md). Wheel opens a peek. `sideClick` does not complete a task.
 - Phase 3: Scheduler, reminder dedup, morning briefing to Telegram.
 - Phase 4: Read-only Zayka search/read.
 

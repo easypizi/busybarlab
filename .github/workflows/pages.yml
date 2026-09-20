@@ -1,3 +1,5 @@
+# GitHub Pages for rabbit/assistant. After the repo rename the public URL is
+# https://easypizi.github.io/toy_lair/ if Pages stays enabled.
 name: pages
 
 on:

@@ -39,3 +39,40 @@ def test_voice_roundtrip() -> None:
     assert body["transcript"] == "add milk"
     assert body["reply"] == "added milk"
     assert body["audio_base64"] == "YQ=="
+
+
+class BoomSpeech:
+    def transcribe(self, data: bytes, mime: str) -> str:
+        raise RuntimeError("whisper down")
+
+    def speak(self, text: str) -> str:
+        return ""
+
+
+class BoomAgent:
+    def handle_text(self, text: str, channel: str = "r1"):
+        raise RuntimeError("agent exploded")
+
+
+def test_voice_surfaces_stt_error() -> None:
+    app = create_app(Settings(assistant_api_token="secret"), speech=BoomSpeech(), agent=FakeAgent())
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/voice",
+            headers={"X-Assistant-Token": "secret"},
+            files={"audio": ("a.wav", b"wav", "audio/wav")},
+        )
+    assert response.status_code == 200
+    assert "whisper down" in response.json()["reply"]
+
+
+def test_voice_surfaces_agent_error() -> None:
+    app = create_app(Settings(assistant_api_token="secret"), speech=FakeSpeech(), agent=BoomAgent())
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/voice",
+            headers={"X-Assistant-Token": "secret"},
+            files={"audio": ("a.wav", b"wav", "audio/wav")},
+        )
+    assert response.status_code == 200
+    assert "agent exploded" in response.json()["reply"]
