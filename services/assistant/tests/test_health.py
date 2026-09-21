@@ -48,11 +48,8 @@ def test_creation_index_is_r1_sized() -> None:
     assert "wheel select" not in body
     assert 'id="rec"' in body
     assert 'id="count"' in body
-    assert 'id="tap-gate"' in body
+    assert 'id="tap-gate"' not in body
     assert 'id="peek"' in body
-    assert "recWanted" in script.text
-    assert "enableMic" in script.text
-    assert "tap once for mic" in script.text
     assert "completeSelected" not in script.text
     assert "togglePeek" in script.text
     assert 'rel="icon"' in body
@@ -66,24 +63,20 @@ def test_creation_index_is_r1_sized() -> None:
     assert "64px" in css.text
     assert "#reply.long" in css.text
     assert "#list { list-style: none; height: 100%; overflow-y: auto; }" in css.text
-    assert "pointer-events: none" in css.text
+    assert "#tap-gate" not in css.text
     script = client.get("/creation/app.js")
     assert "setReply" in script.text
     assert "scrollReply" in script.text
     assert "client-log" in script.text
-    assert "audio/ogg" in script.text
     assert "touchend" in script.text
-    assert "start(250)" in script.text
-    assert "mic timeout" in script.text
-    assert "stop timeout" in script.text
-    assert "empty clip" in script.text
     assert "scrollIntoView" in script.text
-    assert "need tap" in script.text
-    assert "fromGesture" in script.text
-    assert "setGateText" in script.text
-    assert "echoCancellation" in script.text
-    assert "AudioContext" in script.text
-    assert "sampleRate: 44100" in script.text
+    assert "CreationVoiceHandler" in script.text
+    assert "sttEnded" in script.text
+    assert "window.onPluginMessage" in script.text
+    assert "/api/text" in script.text
+    assert "wantsR1Response" in script.text
+    assert "listening" in script.text
+    assert "getUserMedia" not in script.text
     icon = client.get("/creation/icon.png")
     assert icon.status_code == 200
     assert icon.content[:8] == b"\x89PNG\r\n\x1a\n"

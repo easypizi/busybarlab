@@ -11,23 +11,12 @@
   var token = "";
   var items = [];
   var selected = 0;
-  var micStream = null;
-  var micWait = null;
-  var recorder = null;
-  var chunks = [];
   var lastEvent = "";
   var storageSource = "";
   var pairTimer = null;
-  var recWanted = false;
   var peekOpen = false;
-  var stopWatch = null;
-  var MIME_TYPES = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/ogg;codecs=opus",
-    "audio/mp4",
-    "",
-  ];
+  var listening = false;
+  var sttWatch = null;
 
   function $(id) {
     return document.getElementById(id);
@@ -88,24 +77,6 @@
         body: JSON.stringify({ event: String(event || ""), detail: String(detail || "") }),
       }).catch(function () {});
     } catch (err) {}
-  }
-
-  function clipName(mime) {
-    var lower = String(mime || "").toLowerCase();
-    if (lower.indexOf("ogg") >= 0) return "clip.ogg";
-    if (lower.indexOf("mp4") >= 0 || lower.indexOf("m4a") >= 0) return "clip.m4a";
-    if (lower.indexOf("webm") >= 0) return "clip.webm";
-    return "clip.webm";
-  }
-
-  function pickMime() {
-    if (typeof MediaRecorder === "undefined") return null;
-    if (!MediaRecorder.isTypeSupported) return "";
-    for (var i = 0; i < MIME_TYPES.length; i++) {
-      var mime = MIME_TYPES[i];
-      if (!mime || MediaRecorder.isTypeSupported(mime)) return mime;
-    }
-    return "";
   }
 
   function needsBridge() {
@@ -396,178 +367,25 @@
       });
   }
 
-  function setGateText(text) {
-    $("tap-gate").textContent = text;
+  function hasVoiceBridge() {
+    return typeof CreationVoiceHandler !== "undefined";
   }
 
-  function showTapGate() {
-    $("tap-gate").hidden = false;
-    setGateText("tap once for mic");
-    setStatus("tap once for mic");
+  function speak(text) {
+    if (!text || typeof PluginMessageHandler === "undefined") return;
+    PluginMessageHandler.postMessage(
+      JSON.stringify({ message: text, useLLM: false, wantsR1Response: true })
+    );
   }
 
-  function hideTapGate() {
-    $("tap-gate").hidden = true;
-  }
-
-  var MIC_CONSTRAINTS = [
-    {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 44100,
-        channelCount: 1,
-      },
-    },
-    { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } },
-    { audio: true },
-  ];
-
-  function requestMic(index) {
-    beacon("mic ask", "i=" + index);
-    return navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS[index]).then(function (stream) {
-      return stream;
-    }, function (err) {
-      if (index + 1 < MIC_CONSTRAINTS.length) {
-        beacon("mic fallback", ((err && err.name) || String(err)) + " i=" + index);
-        return requestMic(index + 1);
-      }
-      throw err;
-    });
-  }
-
-  function warmMic(stream) {
-    try {
-      var Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return stream;
-      var ctx = new Ctx({ latencyHint: "interactive", sampleRate: 44100 });
-      var resume = ctx.state === "suspended" && ctx.resume ? ctx.resume() : Promise.resolve();
-      return Promise.resolve(resume).then(
-        function () {
-          ctx.createMediaStreamSource(stream);
-          return stream;
-        },
-        function () {
-          return stream;
-        }
-      );
-    } catch (err) {
-      return stream;
-    }
-  }
-
-  function enableMic() {
-    if (micStream) return Promise.resolve(micStream);
-    if (micWait) return micWait;
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setStatus("no getUserMedia (need HTTPS)");
-      return Promise.reject(new Error("no mic"));
-    }
-    setGateText("arming mic");
-    setStatus("arming mic");
-    var waitNote = setTimeout(function () {
-      if (!micStream) {
-        setGateText("still arming mic");
-        setStatus("still arming mic");
-      }
-    }, 12000);
-    micWait = requestMic(0)
-      .then(function (stream) {
-        return warmMic(stream);
-      })
-      .then(function (stream) {
-        clearTimeout(waitNote);
-        micStream = stream;
-        micWait = null;
-        hideTapGate();
-        var tracks = stream.getAudioTracks ? stream.getAudioTracks().length : 0;
-        beacon("mic ok", String(tracks));
-        return stream;
-      }, function (err) {
-        clearTimeout(waitNote);
-        micWait = null;
-        throw err;
-      });
-    return micWait;
-  }
-
-  function beginRecorder() {
-    if (typeof MediaRecorder === "undefined") {
-      setStatus("no MediaRecorder");
-      beacon("recorder err", "no MediaRecorder");
-      recWanted = false;
-      document.body.classList.remove("recording");
-      return;
-    }
-    chunks = [];
-    try {
-      var mime = pickMime();
-      recorder = mime ? new MediaRecorder(micStream, { mimeType: mime }) : new MediaRecorder(micStream);
-      recorder.ondataavailable = function (ev) {
-        if (ev.data && ev.data.size) chunks.push(ev.data);
-        setStatus("recording · " + chunks.length + " chunks");
-      };
-      recorder.start(250);
-      setStatus("recording · 0 chunks");
-      beacon("recorder start", recorder.mimeType || mime || "");
-    } catch (err) {
-      setStatus("rec: " + (err.name || err));
-      beacon("recorder err", err.name || String(err));
-      recWanted = false;
-      document.body.classList.remove("recording");
-    }
-  }
-
-  function startRec(fromGesture) {
-    recWanted = true;
-    setPeek(false);
-    document.body.classList.add("recording");
-    if (!fromGesture && !micStream) {
-      recWanted = false;
-      document.body.classList.remove("recording");
-      showTapGate();
-      beacon("need tap", "");
-      return;
-    }
-    setStatus("arming mic");
-    enableMic()
-      .then(function () {
-        if (!recWanted) {
-          beacon("end before mic", "");
-          return;
-        }
-        beginRecorder();
-      })
-      .catch(function (err) {
-        recWanted = false;
-        document.body.classList.remove("recording");
-        var name = (err && err.name) || String(err && err.message) || "error";
-        if (name === "TimeoutError" || (err && err.message) === "mic timeout") {
-          setStatus("mic timeout");
-          setGateText("mic timeout · tap again");
-          $("tap-gate").hidden = false;
-          beacon("mic timeout", name);
-          return;
-        }
-        setStatus("mic: " + name);
-        beacon("mic err", name);
-        showTapGate();
-        setGateText("mic: " + name);
-      });
-  }
-
-  function sendClip(blob, mime) {
-    if (!blob.size) {
-      setStatus("empty clip (0 bytes)");
-      beacon("empty clip", mime || "");
-      return;
-    }
-    var body = new FormData();
-    body.append("audio", blob, clipName(mime));
+  function sendText(text) {
     setStatus("sending");
-    beacon("blob", blob.size + " " + (mime || ""));
-    fetch(API + "/api/voice", { method: "POST", headers: headers(), body: body })
+    beacon("text", text);
+    fetch(API + "/api/text", {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, headers()),
+      body: JSON.stringify({ text: text }),
+    })
       .then(rejectIfUnauthorized)
       .then(function (res) {
         return res.json().then(function (data) {
@@ -577,98 +395,77 @@
       })
       .then(function (data) {
         setReply(data.reply || "");
-        setStatus(data.transcript || "ok");
-        if (data.audio_base64) {
-          var audio = new Audio("data:audio/mpeg;base64," + data.audio_base64);
-          audio.play();
-        }
+        setStatus(text);
+        speak(data.reply || "");
         loadToday();
       })
       .catch(function (err) {
-        var text = String(err.message || err);
-        setStatus(text);
-        beacon("voice err", text);
+        var message = String(err.message || err);
+        setStatus(message);
+        beacon("text err", message);
       });
   }
 
-  function finishStop(reason) {
-    if (stopWatch) {
-      clearTimeout(stopWatch);
-      stopWatch = null;
-    }
-    if (!recorder) {
-      document.body.classList.remove("recording");
+  function startRec() {
+    if (listening) return;
+    if (!hasVoiceBridge()) {
+      setStatus("no voice bridge (open on r1)");
+      beacon("no voice bridge", "");
       return;
     }
-    var mime = recorder.mimeType || "audio/webm";
-    var blob = new Blob(chunks, { type: mime });
-    recorder = null;
-    document.body.classList.remove("recording");
-    if (reason === "stop timeout") {
-      setStatus("stop timeout");
-      beacon("stop timeout", String(blob.size));
-      if (!blob.size) return;
-    }
-    sendClip(blob, mime);
+    listening = true;
+    setPeek(false);
+    document.body.classList.add("recording");
+    setStatus("listening");
+    CreationVoiceHandler.postMessage("start");
+    beacon("stt start", "");
   }
 
   function stopRec() {
-    recWanted = false;
-    if (!recorder) {
-      document.body.classList.remove("recording");
-      return;
-    }
-    recorder.onstop = function () {
-      finishStop("onstop");
-    };
-    try {
-      recorder.stop();
-    } catch (err) {
-      finishStop("stop timeout");
-      return;
-    }
-    stopWatch = setTimeout(function () {
-      finishStop("stop timeout");
-    }, 2000);
+    if (!listening) return;
+    document.body.classList.remove("recording");
+    setStatus("transcribing");
+    CreationVoiceHandler.postMessage("stop");
+    if (sttWatch) clearTimeout(sttWatch);
+    sttWatch = setTimeout(function () {
+      listening = false;
+      setStatus("stt timeout");
+      beacon("stt timeout", "");
+    }, 15000);
   }
 
-  var tapLock = 0;
-
-  function onUserTap(ev) {
-    var now = Date.now();
-    if (ev && ev.type === "click" && now - tapLock < 800) return;
-    if (ev && ev.type === "touchstart") tapLock = now;
-    if (ev) ev.preventDefault();
-    setGateText("arming mic");
-    enableMic()
-      .then(function () {
-        hideTapGate();
-        var status = $("status").textContent;
-        if (status === "tap once for mic" || status === "arming mic" || status === "mic timeout") {
-          setStatus("hold PTT");
-        }
-      })
-      .catch(function (err) {
-        var name = (err && err.name) || String(err && err.message) || "error";
-        $("tap-gate").hidden = false;
-        if (name === "TimeoutError" || (err && err.message) === "mic timeout") {
-          setGateText("mic timeout · tap again");
-          setStatus("mic timeout");
-          beacon("mic timeout", name);
-          return;
-        }
-        setGateText("mic: " + name);
-        setStatus("mic: " + name);
-        beacon("mic err", name);
-      });
-  }
-
-  document.body.addEventListener("touchstart", onUserTap, { passive: false });
-  document.body.addEventListener("click", onUserTap);
+  window.onPluginMessage = function (data) {
+    if (typeof data === "string") {
+      try {
+        data = JSON.parse(data);
+      } catch (err) {
+        return;
+      }
+    }
+    if (!data) return;
+    if (data.type === "sttStarted") {
+      setStatus("listening");
+      return;
+    }
+    if (data.type !== "sttEnded") return;
+    if (sttWatch) {
+      clearTimeout(sttWatch);
+      sttWatch = null;
+    }
+    listening = false;
+    document.body.classList.remove("recording");
+    var text = String(data.transcript || "").trim();
+    if (!text) {
+      setStatus("heard nothing");
+      beacon("stt empty", "");
+      return;
+    }
+    sendText(text);
+  };
 
   window.addEventListener("scrollUp", function () {
     logEvent("scrollUp");
-    if (recWanted) return;
+    if (listening) return;
     if (!peekOpen && replyOverflows() && $("reply").scrollTop > 0) {
       scrollReply(-40);
       return;
@@ -687,7 +484,7 @@
   });
   window.addEventListener("scrollDown", function () {
     logEvent("scrollDown");
-    if (recWanted) return;
+    if (listening) return;
     if (!peekOpen && replyOverflows()) {
       var reply = $("reply");
       if (reply.scrollTop + reply.clientHeight < reply.scrollHeight - 2) {
@@ -706,7 +503,7 @@
   window.addEventListener("sideClick", function () {
     logEvent("sideClick");
     beacon("sideClick", "");
-    if (recWanted) return;
+    if (listening) return;
     togglePeek();
   });
   window.addEventListener("longPressStart", function () {
@@ -727,7 +524,7 @@
       function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
-        startRec(true);
+        startRec();
       },
       { passive: false }
     );
@@ -751,7 +548,7 @@
     );
     el.addEventListener("mousedown", function (ev) {
       ev.preventDefault();
-      startRec(true);
+      startRec();
     });
     el.addEventListener("mouseup", function (ev) {
       ev.preventDefault();

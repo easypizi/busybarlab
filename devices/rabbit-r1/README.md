@@ -30,7 +30,8 @@ Allowed:
 
 - HTML/CSS/JS, Canvas 2D
 - `window` events: `scrollUp`, `scrollDown`, `sideClick`, `longPressStart`, `longPressEnd`
-- `getUserMedia` + `MediaRecorder` **only over HTTPS**, after a user tap
+- `CreationVoiceHandler.postMessage("start"|"stop")` for native STT (no `getUserMedia`)
+- `window.onPluginMessage` for `{type: "sttStarted"}` then `{type: "sttEnded", transcript}`
 - `window.creationStorage.plain` / `.secure` (values must be Base64)
 - `PluginMessageHandler.postMessage` → `window.onPluginMessage` (Rabbit LLM / TTS, no our tools)
 - `closeWebView.postMessage("")`
@@ -38,19 +39,20 @@ Allowed:
 Not allowed / unreliable:
 
 - WebGL
-- `getUserMedia` over HTTP
-- inline `onclick` on dynamically injected HTML (use `document.body` `touchstart` + `preventDefault`)
+- `getUserMedia` in this WebView (hangs, no prompt, no error)
+- inline `onclick` on dynamically injected HTML
+- `touchstart` + `preventDefault` on `document.body` (breaks the on-screen keyboard)
 - more than one creation at a time
-- intern-generated creations cannot host a backend or use STT (our creation is self-hosted, so we can)
+- intern-generated creations cannot host a backend (our creation is self-hosted)
 
 Install: host the site, open `install.html`, scan the QR from Creations → add via QR.
 
-`PluginMessageHandler` with `useLLM: true` and `wantsR1Response: true` speaks through the R1 speaker. That LLM has no Todoist/GCal tools. The assistant in this repo talks to **our** FastAPI instead. Keep Rabbit TTS as a fallback only.
+`PluginMessageHandler` with `useLLM: false` and `wantsR1Response: true` speaks our reply through the R1 speaker. `useLLM: true` would route to Rabbit's LLM, which has no Todoist/GCal tools. Tito talks to **our** FastAPI instead.
 
 ## Assistant constraints that follow from this
 
-- Serve the creation from the same Heroku app (`https://…`) so mic + API are same-origin.
-- Voice v1: hold PTT → `getUserMedia` + record → `POST /api/voice` → STT → agent → TTS (2–4 s). If the WebView blocks mic on PTT, a one-time tap gate appears. No WebRTC in v1.
+- Serve the creation from the same Heroku app (`https://…`) so pairing + API are same-origin.
+- Voice: hold PTT → `CreationVoiceHandler` → `sttEnded` transcript → `POST /api/text` → speak reply via `PluginMessageHandler`. No WebRTC, no tap gate.
 - No push into a creation. Proactive reminders go to Telegram.
 - Touch targets should stay near 44 px. Dark high-contrast UI, accent `#FE5000`, 512px creation icon. No WebGL animations. PTT pulse uses `transform` and `opacity` only.
 
