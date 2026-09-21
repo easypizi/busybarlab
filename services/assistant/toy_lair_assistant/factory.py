@@ -23,6 +23,10 @@ from toy_lair_assistant.zayka import ZaykaIndex
 
 
 def build_app(settings: Settings | None = None) -> FastAPI:
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger("toy_lair_assistant").setLevel(logging.INFO)
     settings = settings or Settings()
     clock = Clock(settings.timezone)
     store = open_store(settings.database_url)

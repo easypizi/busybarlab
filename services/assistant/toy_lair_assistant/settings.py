@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     plan_horizon_days: int = 7
     plan_default_minutes: int = 60
     plan_weekends: bool = True
+    plan_buffer_minutes: int = 15
+    plan_focus_streak_minutes: int = 180
+    plan_break_minutes: int = 30
+    plan_daily_load_minutes: int = 240
+    work_hours_start: int = 9
+    work_hours_end: int = 17
+    work_days: str = "mon-fri"
     task_lead_minutes: int = 15
     deadline_lead_days: int = 1
     remind_label: str = "remind"

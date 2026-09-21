@@ -134,6 +134,7 @@ class _WeekTodoist:
         return [
             Task(id="1", content="Pay rent", due_date="2026-09-19", due_string="12:00", priority=4),
             Task(id="2", content="Walk", due_date="2026-09-20", due_string="Mon", priority=1),
+            Task(id="3", content="Supplements", due_date="2026-09-19", is_recurring=True),
         ]
 
 
@@ -192,22 +193,29 @@ def test_week_skips_task_mirrors() -> None:
     )
     text = sent[0]["text"]
     assert "<b>Week</b>" in text
+    assert "<b>Sat 09-19</b>" in text
+    assert "<b>Sun 09-20</b>" in text
     assert "Pay rent" in text
     assert "Standup" in text
     assert text.count("Pay rent") == 1
+    assert "Walk" in text
+    assert "<b>Rituals</b>" in text
+    assert "Supplements" in text
 
 
-def test_plan_sends_rest_to_agent() -> None:
+def test_empty_plan_sends_hint_without_agent() -> None:
     sent: list[dict] = []
     agent = DayAgent()
     bot = TelegramBot(token="bot", chat_id="111", sender=lambda payload: sent.append(payload))
     bot.handle_update(
-        {"message": {"chat": {"id": 111}, "text": "/plan write brief"}},
+        {"message": {"chat": {"id": 111}, "text": "/plan"}},
         agent,
         FakeSpeech(),
     )
-    assert agent.seen == ["write brief"]
-    assert "planned: write brief" in sent[0]["text"]
+    assert agent.seen == []
+    assert "<b>Plan</b>" in sent[0]["text"]
+    assert "/plan" in sent[0]["text"]
+    assert "уборка" in sent[0]["text"]
 
 
 def test_help_sends_photo(tmp_path) -> None:
@@ -227,6 +235,8 @@ def test_help_sends_photo(tmp_path) -> None:
     )
     assert sent[0]["_method"] == "sendPhoto"
     assert "Tito" in sent[0]["caption"]
+    assert "<b>Commands</b>" in sent[0]["caption"]
+    assert "/plan" in sent[0]["caption"]
 
 
 def test_task_done_callback_closes_task() -> None:
@@ -300,9 +310,8 @@ class _PlanLLM:
 class _PlanTodoist:
     def __init__(self) -> None:
         self.updates: list[tuple[str, dict]] = []
-
-    def today(self):
-        return [
+        self.added: list[tuple[str, dict]] = []
+        self._tasks = [
             Task(
                 id="call",
                 content="Позвонить маме",
@@ -314,8 +323,20 @@ class _PlanTodoist:
             Task(id="market", content="Рынок", due_date="2026-09-20"),
         ]
 
+    def today(self):
+        return list(self._tasks)
+
+    def open_tasks(self):
+        return list(self._tasks)
+
     def update(self, task_id: str, **fields) -> None:
         self.updates.append((task_id, fields))
+
+    def add(self, content: str, **fields) -> Task:
+        task = Task(id=f"n{len(self.added)+1}", content=content)
+        self.added.append((content, fields))
+        self._tasks.append(task)
+        return task
 
 
 class _EmptyCal:
@@ -348,6 +369,13 @@ def _day_bot(sent, todoist=None, store=None, sync=None):
                 "plan_horizon_days": 7,
                 "plan_default_minutes": 60,
                 "plan_weekends": True,
+                "plan_buffer_minutes": 15,
+                "plan_focus_streak_minutes": 180,
+                "plan_break_minutes": 30,
+                "plan_daily_load_minutes": 240,
+                "work_hours_start": 9,
+                "work_hours_end": 17,
+                "work_days": "mon-fri",
             },
         )(),
         store=store,
@@ -456,3 +484,81 @@ def test_ensure_profile_once_a_day() -> None:
     assert names.count("setMyName") == 1
     assert names.count("setMyCommands") == 1
     assert sent[0]["name"] == "Tito"
+    commands = next(item for item in sent if item.get("_method") == "setMyCommands")["commands"]
+    plan = next(item for item in commands if item["command"] == "plan")
+    assert "line" in plan["description"].lower() or "слот" in plan["description"].lower()
+
+
+def test_plan_command_builds_card_without_agent() -> None:
+    sent: list[dict] = []
+    agent = DayAgent()
+    bot, _, _ = _day_bot(sent)
+    bot.handle_update(
+        {
+            "message": {
+                "chat": {"id": 111},
+                "text": "/plan\nуборка\nписьмо Каю\nдобавки",
+            }
+        },
+        agent,
+        FakeSpeech(),
+    )
+    assert agent.seen == []
+    assert len(sent) == 1
+    text = sent[0]["text"]
+    assert "<b>Plan</b>" in text or "<b>Schedule</b>" in text
+    assert "<b>Schedule</b>" in text
+    labels = [item["text"] for item in sent[0]["reply_markup"]["inline_keyboard"][0]]
+    assert "✅ Apply plan" in labels
+    assert "🔁 Reshuffle" in labels
+    assert "📅 Tomorrow" in labels
+
+
+def test_plan_tomorrow_shifts_day() -> None:
+    sent: list[dict] = []
+    bot, _, _ = _day_bot(sent)
+    bot.handle_update(
+        {"message": {"chat": {"id": 111}, "text": "/plan\nуборка"}},
+        DayAgent(),
+        FakeSpeech(),
+    )
+    first = sent[0]["text"]
+    sent.clear()
+    bot.handle_update(
+        {
+            "callback_query": {
+                "id": "q5",
+                "data": "plan:tomorrow",
+                "message": {"chat": {"id": 111}, "message_id": 6, "text": "old"},
+            }
+        },
+        DayAgent(),
+        FakeSpeech(),
+    )
+    fresh = next(item for item in sent if item.get("text") and "Plan" in item.get("text", ""))
+    assert first != fresh["text"]
+    assert "09-21" in fresh["text"]
+
+
+def test_agent_week_question_sends_card() -> None:
+    sent: list[dict] = []
+    bot, _, _ = _day_bot(sent)
+
+    class WeekAsk(DayAgent):
+        def handle_text(self, text: str, channel: str = "telegram"):
+            self.seen.append(text)
+            return AgentResult(
+                reply="На неделю у тебя в задачах есть мама, бег, уборка и ещё десять пунктов через запятую",
+                tool_calls=[],
+                used_tools=["todoist_upcoming"],
+            )
+
+    bot.handle_update(
+        {"message": {"chat": {"id": 111}, "text": "что на неделю?"}},
+        WeekAsk(),
+        FakeSpeech(),
+    )
+    text = sent[0]["text"]
+    assert "<b>Week</b>" in text
+    assert "\n" in text
+    assert "мама, бег, уборка" not in text

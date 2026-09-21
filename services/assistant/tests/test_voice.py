@@ -115,7 +115,7 @@ def test_voice_logs_agent_line_and_mirrors_long_reply(caplog) -> None:
     assert "agent channel=r1" in caplog.text
     assert "todoist_add" in caplog.text
     assert "ms=" in caplog.text
-    assert notify.sent == ["x" * 200]
+    assert notify.sent == []
 
 
 def test_client_log_requires_token() -> None:

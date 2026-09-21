@@ -17,17 +17,31 @@ from toy_lair_assistant.agent import invoke_agent
 COMMANDS = [
     {"command": "today", "description": "Today's tasks and events"},
     {"command": "week", "description": "Next 7 days"},
-    {"command": "plan", "description": "Draft a week plan"},
+    {"command": "plan", "description": "List of lines, Tito slots them"},
     {"command": "help", "description": "How Tito works"},
 ]
 
 HELP = (
     "**Tito**\n"
     "Laid-back calendar butler.\n\n"
-    "/today: what's on\n"
-    "/week: next 7 days\n"
-    "/plan: schedule a list\n"
+    "**Commands**\n"
+    "/today: day card\n"
+    "/week: week by day\n"
+    "/plan: list of lines\n"
+    "/help: this card\n\n"
+    "**Plan**\n"
+    "/plan\n"
+    "уборка\n"
+    "позвонить бате\n\n"
     "Hold PTT on the r1 to talk."
+)
+
+PLAN_HINT = (
+    "**Plan**\n"
+    "Each line is a task.\n\n"
+    "/plan\n"
+    "уборка\n"
+    "позвонить бате"
 )
 
 
@@ -164,7 +178,9 @@ class TelegramBot:
         store.mark(key)
 
     def _command(self, text: str, agent: Any) -> None:
-        cmd, _, rest = text.partition(" ")
+        parts = text.split(None, 1)
+        cmd = parts[0]
+        rest = parts[1] if len(parts) > 1 else ""
         name = cmd.split("@", 1)[0].lower()
         if name in {"/start", "/help"}:
             self.send_message(HELP, photo=self.photo_path)
@@ -176,15 +192,44 @@ class TelegramBot:
             self.send_message(self._week_text(agent))
             return
         if name == "/plan":
-            if rest.strip():
-                self._agent_reply(agent, rest.strip())
-            else:
-                self.send_message("Send /plan and the list of things to schedule.")
+            self._send_plan(rest)
             return
         self._agent_reply(agent, text)
 
+    def _send_plan(self, text: str) -> None:
+        from toy_lair_assistant.day_plan import plan_buttons, parse_plan_lines, render
+
+        raw = (text or "").strip()
+        if not raw or self.day_planner is None:
+            self.send_message(PLAN_HINT)
+            return
+        if not parse_plan_lines(raw):
+            self.send_message(PLAN_HINT)
+            return
+        plan = self.day_planner.build_from_lines(raw, self.now())
+        self.send_message(render(plan), buttons=plan_buttons(plan))
+
     def _agent_reply(self, agent: Any, text: str) -> None:
+        from toy_lair_assistant.cards import (
+            LIST_TOOLS,
+            looks_like_list,
+            render_schedule_card,
+            schedule_kind,
+            short_tito,
+        )
+
+        if looks_like_list(text) and self.day_planner is not None:
+            self._send_plan(text)
+            return
         result = invoke_agent(agent, text, channel="telegram")
+        kind = schedule_kind(text)
+        used = set(getattr(result, "used_tools", []) or [])
+        if kind or used & LIST_TOOLS:
+            card, buttons = render_schedule_card(self.day_planner, agent, kind or "today", self.now())
+            note = short_tito(result.reply)
+            body = "\n".join(part for part in (card, note) if part)
+            self.send_message(body or result.reply, buttons=buttons)
+            return
         turn_id = uuid.uuid4().hex[:8]
         self.send_message(result.reply, buttons=feedback_buttons(turn_id))
 
@@ -221,23 +266,13 @@ class TelegramBot:
     def _week_text(self, agent: Any) -> str:
         from datetime import timedelta
 
+        from toy_lair_assistant.day_plan import render_week
+
         now = agent.now()
-        lines = ["**Week**"]
-        tasks = list(agent.todoist.upcoming(7))
-        tasks.sort(key=lambda task: (task.due_date or "", -int(task.priority or 1)))
-        for task in tasks:
-            mark = "🔴 " if int(task.priority or 1) >= 4 else ""
-            when = task.due_string or task.due_date or ""
-            lines.append(f"- {mark}{task.content} {when}".rstrip())
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        for event in agent.calendar.events_in_range(start, start + timedelta(days=7)):
-            if getattr(event, "todoist_id", None):
-                continue
-            when = event.start[11:16] if len(event.start) >= 16 else event.start
-            lines.append(f"- {event.title} {when}".rstrip())
-        if len(lines) == 1:
-            lines.append("Quiet week.")
-        return "\n".join(lines)
+        tasks = list(agent.todoist.upcoming(7))
+        events = list(agent.calendar.events_in_range(start, start + timedelta(days=7)))
+        return render_week(now, tasks, events)
 
     def _callback(self, query: dict, agent: Any) -> None:
         message = query.get("message") or {}
@@ -269,7 +304,20 @@ class TelegramBot:
         from toy_lair_assistant.day_plan import plan_buttons, render
 
         if data == "plan:redo":
-            plan = self.day_planner.build(self.now())
+            plan = self._rebuild_plan()
+            self.send_message(render(plan), buttons=plan_buttons(plan))
+            return
+        if data == "plan:tomorrow":
+            if self.day_planner._draft_lines:
+                plan = self.day_planner.build_from_lines(
+                    self.day_planner._draft_lines,
+                    self.now(),
+                    day_offset=self.day_planner._draft_offset + 1,
+                )
+            else:
+                from datetime import timedelta
+
+                plan = self.day_planner.build(self.now() + timedelta(days=1))
             self.send_message(render(plan), buttons=plan_buttons(plan))
             return
         if not data.startswith("plan:apply:"):
@@ -277,17 +325,32 @@ class TelegramBot:
         plan_id = data.split(":", 2)[2]
         plan = self.day_planner.apply(plan_id, self.now())
         count = len(plan.suggested) if plan else 0
+        created = sum(
+            1
+            for item in (plan.suggested if plan else [])
+            if item.is_new or str(item.task_id).startswith("new:")
+        )
+        note = f"Applied {count} slots, {created} new task." if created else f"Applied {count} slots."
         original = message.get("text") or message.get("caption") or ""
         self.sender(
             {
                 "_method": "editMessageText",
                 "chat_id": self.chat_id,
                 "message_id": message.get("message_id"),
-                "text": to_html(f"{original}\nApplied {count} slots."),
+                "text": to_html(f"{original}\n{note}"),
                 "parse_mode": "HTML",
                 "reply_markup": {"inline_keyboard": []},
             }
         )
+
+    def _rebuild_plan(self):
+        if self.day_planner._draft_lines:
+            return self.day_planner.build_from_lines(
+                self.day_planner._draft_lines,
+                self.now(),
+                day_offset=self.day_planner._draft_offset,
+            )
+        return self.day_planner.build(self.now())
 
     def _task_action(self, data: str, message: dict) -> None:
         parts = data.split(":")

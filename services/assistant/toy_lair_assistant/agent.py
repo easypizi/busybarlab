@@ -33,6 +33,7 @@ class ToolCall:
 class AgentResult:
     reply: str
     tool_calls: list[ToolCall] = field(default_factory=list)
+    used_tools: list[str] = field(default_factory=list)
 
 
 def invoke_agent(
@@ -46,9 +47,20 @@ def invoke_agent(
     ms = int((time.perf_counter() - started) * 1000)
     tools = [call.name for call in getattr(result, "tool_calls", []) or []]
     LOG.info("agent channel=%s tools=%s ms=%s", channel, tools, ms)
-    reply = getattr(result, "reply", "") or ""
-    if channel == "r1" and notify is not None and len(reply) > 160:
-        notify.send_text(reply)
+    if channel == "r1" and notify is not None:
+        from toy_lair_assistant.cards import render_schedule_card, schedule_kind, short_tito
+
+        kind = schedule_kind(text)
+        used = set(getattr(result, "used_tools", []) or [])
+        from toy_lair_assistant.cards import LIST_TOOLS
+
+        if kind or used & LIST_TOOLS:
+            planner = getattr(notify, "day_planner", None)
+            card, _buttons = render_schedule_card(planner, agent, kind or "today", agent.now())
+            note = short_tito(getattr(result, "reply", "") or "")
+            body = "\n".join(part for part in (card, note) if part)
+            if body:
+                notify.send_text(body)
     return result
 
 
@@ -80,6 +92,7 @@ class Agent:
             "todoist_reschedule": self._todoist_reschedule,
             "todoist_upcoming": self._todoist_upcoming,
             "gcal_events": self._gcal_events,
+            "gcal_calendars": self._gcal_calendars,
             "gcal_create": self._gcal_create,
             "gcal_move": self._gcal_move,
             "gcal_delete": self._gcal_delete,
@@ -116,15 +129,17 @@ class Agent:
         messages.append({"role": "user", "content": text})
         confirmed = self._confirmed(text, messages)
         last = AgentResult(reply="ok")
+        used_tools: list[str] = []
         for _round in range(4):
             last = self.llm.complete(messages, list(self.tools))
             if not last.tool_calls:
                 break
+            used_tools.extend(call.name for call in last.tool_calls)
             blocked, notes, executed = self._run_tools(
                 last.tool_calls, task_map, event_map, confirmed
             )
             if blocked:
-                last = AgentResult(reply=blocked, tool_calls=last.tool_calls)
+                last = AgentResult(reply=blocked, tool_calls=last.tool_calls, used_tools=used_tools)
                 break
             messages.append(self._assistant_tool_message(last))
             for call, note in zip(executed, notes):
@@ -137,7 +152,7 @@ class Agent:
                 )
         reply = last.reply or "ok"
         self._remember(channel, text, reply, now)
-        return AgentResult(reply=reply, tool_calls=last.tool_calls)
+        return AgentResult(reply=reply, tool_calls=last.tool_calls, used_tools=used_tools)
 
     def _catalog(
         self, now: datetime
@@ -163,19 +178,36 @@ class Agent:
         channel: str = "r1",
     ) -> str:
         zone = getattr(now.tzinfo, "key", None) or str(now.tzinfo or "UTC")
+        from toy_lair_assistant.profile import profile_text
+
         lines = [
             "You are Tito, a laid-back Californian butler. Warm, short, no fuss.",
             "Never delete Todoist tasks: close with todoist_complete or reschedule.",
             f"Now: {now.strftime('%Y-%m-%d %H:%M')} {zone}.",
-            "Reply briefly for speech. One or two sentences.",
+            profile_text(self.settings),
             "Refer to tasks as t1, t2 and events as e1, e2. Use tools to change data.",
             "Deleting events or completing more than one task needs a confirm word.",
             "If the user dictates several to-dos, call free_slots and todoist_upcoming first, propose a day-and-time plan, then wait for a confirm word before plan_apply.",
         ]
         if channel == "telegram":
-            lines.append("You may use light Markdown: **bold** and - lists.")
+            lines.extend(
+                [
+                    "Telegram: use **headers** and - lists. Never list tasks in one comma sentence.",
+                    "Do not recite every recurring ritual unless asked. One next step, not 'what next?'.",
+                ]
+            )
         else:
-            lines.append("Plain text only, for speech.")
+            lines.extend(
+                [
+                    "Reply briefly for speech. One or two sentences.",
+                    "Plain text only, for speech. Do not read the catalog. If the list is long, point to the Telegram card.",
+                ]
+            )
+        names = self._calendar_names()
+        lines.append("Calendars: " + (", ".join(names) if names else "(none)"))
+        nxt = self._next_event(now)
+        lines.append(f"Next: {nxt}" if nxt else "Next: (none)")
+        lines.append("Events: today only. For other days call gcal_events.")
         lines.append("Tasks:")
         if not tasks:
             lines.append("(none)")
@@ -371,11 +403,63 @@ class Agent:
             lines.append(f"- {task.content} {when}".strip())
         return "\n".join(lines)
 
-    def _gcal_events(self, day: str | None = None) -> str:
-        events = self._visible_events(self.now())
+    def _gcal_events(self, days: int = 1, day: str | None = None) -> str:
+        now = self.now()
+        horizon = max(1, min(int(days or 1), 7))
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        events = [
+            event
+            for event in self.calendar.events_in_range(start, start + timedelta(days=horizon))
+            if not getattr(event, "todoist_id", None)
+        ]
         if not events:
             return "No events."
-        return "\n".join(f"- {e.title} {e.start}" for e in events)
+        return "\n".join(f"- {event.title} {event.start}" for event in events)
+
+    def _gcal_calendars(self) -> str:
+        names = self._calendar_names()
+        if not names:
+            return "No calendars."
+        return "\n".join(f"- {name}" for name in names)
+
+    def _calendar_names(self) -> list[str]:
+        if not hasattr(self.calendar, "calendars"):
+            return []
+        try:
+            items = list(self.calendar.calendars())
+        except Exception:
+            return []
+        names = []
+        for item in items:
+            if item.get("hidden"):
+                continue
+            name = str(item.get("summary") or item.get("id") or "").strip()
+            if not name:
+                continue
+            if name == "Tito":
+                names.append("Tito (task mirror)")
+            else:
+                names.append(name)
+        return names
+
+    def _next_event(self, now: datetime) -> str:
+        start = now
+        end = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=7)
+        try:
+            events = [
+                event
+                for event in self.calendar.events_in_range(start, end)
+                if not getattr(event, "todoist_id", None)
+            ]
+        except Exception:
+            return ""
+        if not events:
+            return ""
+        event = events[0]
+        when = _parse_dt(event.start)
+        from toy_lair_assistant.planner import WEEKDAYS
+
+        return f"{WEEKDAYS[when.weekday()]} {when.strftime('%m-%d %H:%M')} {event.title}"
 
     def _gcal_create(
         self,

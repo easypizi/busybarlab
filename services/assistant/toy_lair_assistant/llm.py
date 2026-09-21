@@ -103,7 +103,18 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "gcal_events",
-            "description": "List calendar events for today",
+            "description": "List calendar events for a range of days",
+            "parameters": {
+                "type": "object",
+                "properties": {"days": {"type": "integer"}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "gcal_calendars",
+            "description": "List Google calendar names the agent can read",
             "parameters": {"type": "object", "properties": {}},
         },
     },

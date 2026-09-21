@@ -69,6 +69,13 @@ class FakeCal:
     def events_in_range(self, start, end):
         return self.events_for_day()
 
+    def calendars(self):
+        return [
+            {"summary": "itolstof@gmail.com", "id": "itolstof@gmail.com"},
+            {"summary": "Pump it! Louder!", "id": "pump"},
+            {"summary": "Tito", "id": "tito"},
+        ]
+
     def create(self, **kwargs):
         self.created.append(kwargs)
         return CalendarEvent(
@@ -387,10 +394,18 @@ def test_system_prompt_is_tito_and_forbids_delete() -> None:
     assert "@finance" in system
     assert "deadline 09-25" in system
     assert "30m" in system
+    assert "Calendars:" in system
+    assert "itolstof@gmail.com" in system
+    assert "Tito (task mirror)" in system
+    assert "Next:" in system
+    assert "today only" in system
+    assert "Weekdays 09:00-17:00" in system
     llm.rounds = [AgentResult(reply="ok", tool_calls=[])]
     agent.handle_text("hi", channel="telegram")
     telegram = llm.seen[-1][0]["content"]
-    assert "**bold**" in telegram
+    assert "**headers**" in telegram or "**bold**" in telegram or "- lists" in telegram
+    assert "Plain text only" not in telegram
+    assert "Reply briefly for speech" not in telegram
 
 
 def test_todoist_delete_tool_is_rejected() -> None:
@@ -432,3 +447,84 @@ def test_today_payload_hides_todoist_mirrors() -> None:
     assert "Standup" in titles
     assert "Pay rent" not in titles
     assert "Buy milk" in titles
+
+
+def test_gcal_events_reads_range() -> None:
+    calendar = FakeCal()
+
+    def events_in_range(start, end):
+        return [
+            CalendarEvent(
+                id="e2",
+                title="Gym",
+                start="2026-09-21T18:00:00-07:00",
+                end="2026-09-21T19:00:00-07:00",
+            ),
+            CalendarEvent(
+                id="m1",
+                title="Hidden",
+                start="2026-09-21T10:00:00-07:00",
+                end="2026-09-21T11:00:00-07:00",
+                todoist_id="1",
+            ),
+        ]
+
+    calendar.events_in_range = events_in_range  # type: ignore[method-assign]
+    agent = Agent(todoist=FakeTodoist(), calendar=calendar, llm=ScriptedLLM([]), now=_now)
+    text = agent._gcal_events(days=7)
+    assert "Gym" in text
+    assert "Hidden" not in text
+
+
+def test_gcal_calendars_marks_tito() -> None:
+    agent = Agent(todoist=FakeTodoist(), calendar=FakeCal(), llm=ScriptedLLM([]), now=_now)
+    text = agent._gcal_calendars()
+    assert "itolstof@gmail.com" in text
+    assert "Tito (task mirror)" in text
+
+
+def test_next_line_uses_upcoming_event() -> None:
+    calendar = FakeCal()
+
+    def events_in_range(start, end):
+        return [
+            CalendarEvent(
+                id="e2",
+                title="Тяговый день",
+                start="2026-09-21T18:00:00-07:00",
+                end="2026-09-21T19:00:00-07:00",
+            )
+        ]
+
+    calendar.events_in_range = events_in_range  # type: ignore[method-assign]
+    calendar.events_for_day = lambda day=None: []  # type: ignore[method-assign]
+    llm = ScriptedLLM([])
+    agent = Agent(todoist=FakeTodoist(), calendar=calendar, llm=llm, now=_now)
+    agent.handle_text("what's on")
+    system = llm.seen[0][0]["content"]
+    assert "Next: Mon 09-21 18:00 Тяговый день" in system
+    assert "Events:\n(none)" in system
+
+
+def test_invoke_agent_sends_card_not_speech() -> None:
+    from toy_lair_assistant.agent import invoke_agent
+
+    class Note:
+        def __init__(self) -> None:
+            self.sent: list[str] = []
+
+        def send_text(self, text: str) -> None:
+            self.sent.append(text)
+
+    llm = ScriptedLLM(
+        [],
+        text="На неделю у тебя в задачах и ритуалах есть: позвонить маме, бег, уборка и ещё куча дел подряд без структуры",
+    )
+    agent = Agent(todoist=FakeTodoist(), calendar=FakeCal(), llm=llm, now=_now)
+    notify = Note()
+    result = invoke_agent(agent, "что на неделю?", channel="r1", notify=notify)
+    assert notify.sent
+    assert "\n" in notify.sent[0]
+    assert notify.sent[0] != result.reply
+    wall = "На неделю у тебя в задачах и ритуалах есть: позвонить маме, бег, уборка"
+    assert wall not in notify.sent[0]
