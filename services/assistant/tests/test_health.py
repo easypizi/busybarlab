@@ -26,6 +26,7 @@ def test_creation_index_is_r1_sized() -> None:
         response = client.get("/creation/index.html")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["permissions-policy"] == "microphone=(self)"
     body = response.text
     assert "240" in body
     assert "282" in body
@@ -80,6 +81,9 @@ def test_creation_index_is_r1_sized() -> None:
     assert "need tap" in script.text
     assert "fromGesture" in script.text
     assert "setGateText" in script.text
+    assert "echoCancellation" in script.text
+    assert "AudioContext" in script.text
+    assert "sampleRate: 44100" in script.text
     icon = client.get("/creation/icon.png")
     assert icon.status_code == 200
     assert icon.content[:8] == b"\x89PNG\r\n\x1a\n"

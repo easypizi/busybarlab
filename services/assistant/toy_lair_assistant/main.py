@@ -113,6 +113,7 @@ def create_app(
         response = await call_next(request)
         if request.url.path.startswith("/creation"):
             response.headers["Cache-Control"] = "no-cache"
+            response.headers["Permissions-Policy"] = "microphone=(self)"
         return response
 
     @app.get("/health")

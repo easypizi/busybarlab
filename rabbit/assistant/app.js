@@ -410,6 +410,53 @@
     $("tap-gate").hidden = true;
   }
 
+  var MIC_CONSTRAINTS = [
+    {
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 44100,
+        channelCount: 1,
+      },
+    },
+    { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } },
+    { audio: true },
+  ];
+
+  function requestMic(index) {
+    beacon("mic ask", "i=" + index);
+    return navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS[index]).then(function (stream) {
+      return stream;
+    }, function (err) {
+      if (index + 1 < MIC_CONSTRAINTS.length) {
+        beacon("mic fallback", ((err && err.name) || String(err)) + " i=" + index);
+        return requestMic(index + 1);
+      }
+      throw err;
+    });
+  }
+
+  function warmMic(stream) {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return stream;
+      var ctx = new Ctx({ latencyHint: "interactive", sampleRate: 44100 });
+      var resume = ctx.state === "suspended" && ctx.resume ? ctx.resume() : Promise.resolve();
+      return Promise.resolve(resume).then(
+        function () {
+          ctx.createMediaStreamSource(stream);
+          return stream;
+        },
+        function () {
+          return stream;
+        }
+      );
+    } catch (err) {
+      return stream;
+    }
+  }
+
   function enableMic() {
     if (micStream) return Promise.resolve(micStream);
     if (micWait) return micWait;
@@ -419,31 +466,29 @@
     }
     setGateText("arming mic");
     setStatus("arming mic");
-    beacon("mic ask", "");
-    var pending = navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
-      micStream = stream;
-      hideTapGate();
-      var tracks = stream.getAudioTracks ? stream.getAudioTracks().length : 0;
-      beacon("mic ok", String(tracks));
-      return stream;
-    });
-    var timed = new Promise(function (_, reject) {
-      setTimeout(function () {
-        var err = new Error("mic timeout");
-        err.name = "TimeoutError";
-        reject(err);
-      }, 8000);
-    });
-    micWait = Promise.race([pending, timed]).then(
-      function (stream) {
+    var waitNote = setTimeout(function () {
+      if (!micStream) {
+        setGateText("still arming mic");
+        setStatus("still arming mic");
+      }
+    }, 12000);
+    micWait = requestMic(0)
+      .then(function (stream) {
+        return warmMic(stream);
+      })
+      .then(function (stream) {
+        clearTimeout(waitNote);
+        micStream = stream;
         micWait = null;
+        hideTapGate();
+        var tracks = stream.getAudioTracks ? stream.getAudioTracks().length : 0;
+        beacon("mic ok", String(tracks));
         return stream;
-      },
-      function (err) {
+      }, function (err) {
+        clearTimeout(waitNote);
         micWait = null;
         throw err;
-      }
-    );
+      });
     return micWait;
   }
 
@@ -587,7 +632,12 @@
     }, 2000);
   }
 
+  var tapLock = 0;
+
   function onUserTap(ev) {
+    var now = Date.now();
+    if (ev && ev.type === "click" && now - tapLock < 800) return;
+    if (ev && ev.type === "touchstart") tapLock = now;
     if (ev) ev.preventDefault();
     setGateText("arming mic");
     enableMic()
