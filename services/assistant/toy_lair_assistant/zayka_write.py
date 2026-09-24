@@ -142,10 +142,10 @@ class ZaykaWrite:
             "user.email=paco@toy-lair",
             "commit",
             "--only",
-            "--",
-            rel,
             "-m",
             message,
+            "--",
+            rel,
         ]
         if not self._run(commit):
             return self._fail(rel)

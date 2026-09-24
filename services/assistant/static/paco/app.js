@@ -352,6 +352,14 @@
     if (chosen && chosen.scrollIntoView) {
       chosen.scrollIntoView({ block: "nearest" });
     }
+    if (chosen) {
+      var viewTop = list.scrollTop;
+      var viewBottom = viewTop + list.clientHeight;
+      if (chosen.offsetTop < viewTop) list.scrollTop = chosen.offsetTop;
+      else if (chosen.offsetTop + chosen.offsetHeight > viewBottom) {
+        list.scrollTop = chosen.offsetTop + chosen.offsetHeight - list.clientHeight;
+      }
+    }
   }
 
   function loadInbox() {
@@ -492,7 +500,7 @@
     logEvent("scrollUp");
     if (listening) return;
     if (!peekOpen && replyOverflows() && $("dialog").scrollTop > 0) {
-      scrollReply(-40);
+      scrollReply(-16);
       return;
     }
     if (!peekOpen) {
@@ -512,7 +520,7 @@
     if (!peekOpen && replyOverflows()) {
       var reply = $("dialog");
       if (reply.scrollTop + reply.clientHeight < reply.scrollHeight - 2) {
-        scrollReply(40);
+        scrollReply(16);
         return;
       }
     }

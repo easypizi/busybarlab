@@ -60,7 +60,7 @@ def test_creation_index_is_r1_sized() -> None:
     css = client.get("/creation/styles.css")
     assert css.status_code == 200
     assert "#FE5000" in css.text
-    assert "128px" in css.text
+    assert "192px" in css.text
     assert "#dialog" in css.text
     assert "#list { list-style: none; height: 100%; overflow-y: auto; }" in css.text
     assert "#tap-gate" not in css.text

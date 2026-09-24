@@ -51,8 +51,53 @@ def test_inbox_create_writes_fleeting_template(tmp_path: Path) -> None:
     commit = next(args for args in calls if "commit" in args)
     assert commit[1:5] == ["-c", "user.name=Paco", "-c", "user.email=paco@toy-lair"]
     assert "--only" in commit
+    assert commit.index("-m") < commit.index("--")
     assert commit.count("00 Inbox/2026-09-22-hire-scope-idea.md") == 1
     assert "config" not in commit
+
+
+def test_real_git_pushes_inbox_and_daily(tmp_path: Path) -> None:
+    seed = tmp_path / "seed"
+    seed.mkdir()
+    bare = tmp_path / "origin.git"
+    clone = tmp_path / "vault"
+    _git(["init", "-b", "main"], seed)
+    (seed / "Home.md").write_text("home\n", encoding="utf-8")
+    _git(["add", "Home.md"], seed)
+    _git(
+        ["-c", "user.email=seed@test", "-c", "user.name=Seed", "commit", "-m", "init"],
+        seed,
+    )
+    _git(["init", "--bare", "-b", "main", str(bare)], tmp_path)
+    _git(["remote", "add", "origin", str(bare)], seed)
+    _git(["push", "-u", "origin", "main"], seed)
+    _git(["clone", str(bare), str(clone)], tmp_path)
+    (clone / "10 Evergreen").mkdir()
+    (clone / "10 Evergreen" / "atomic-notes.md").write_text("idea\n", encoding="utf-8")
+    from toy_lair_assistant.zayka_write import git_runner
+
+    writer = ZaykaWrite(clone, git_runner, ZONE)
+    inbox = writer.inbox_create(NOW, "Hire", "A short thought", "hire scope idea", ["atomic-notes"])
+    assert inbox.message == "wrote"
+    daily = writer.daily_append(NOW, "evening thought")
+    assert daily.message == "wrote"
+    log = _git(["log", "--format=%s", "origin/main"], clone, capture=True)
+    assert "Capture: Hire" in log
+    assert "Daily: 2026-09-22" in log
+    names = _git(["ls-tree", "-r", "--name-only", "origin/main"], clone, capture=True)
+    assert "00 Inbox/2026-09-22-hire-scope-idea.md" in names
+    assert "60 Daily/2026/09/2026-09-22.md" in names
+
+
+def _git(args: list[str], cwd: Path, capture: bool = False) -> str:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        check=True,
+        capture_output=capture,
+        text=True,
+    )
+    return result.stdout if capture else ""
 
 
 def test_empty_hint_and_cyrillic_become_ascii_slug(tmp_path: Path) -> None:

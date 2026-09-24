@@ -71,6 +71,31 @@ def stamp(buf: list[list[int]], x: int, y: int, rows: list[str], colors: dict[st
                 pix(buf, x + dx, y + dy, colors[ch])
 
 
+def shift(pixels: list[int], dx: int, dy: int) -> list[int]:
+    out: list[int] = []
+    for i in range(0, len(pixels), 3):
+        out.extend((pixels[i] + dx, pixels[i] + dy, pixels[i + 2]))
+    return out
+
+
+def upscale(pixels: list[int], src: int = 64, dst: int = 96) -> list[int]:
+    buf = [[0] * dst for _ in range(dst)]
+    for i in range(0, len(pixels), 3):
+        x, y, color = pixels[i], pixels[i + 1], pixels[i + 2]
+        x0, x1 = x * dst // src, (x + 1) * dst // src
+        y0, y1 = y * dst // src, (y + 1) * dst // src
+        for yy in range(y0, max(y1, y0 + 1)):
+            for xx in range(x0, max(x1, x0 + 1)):
+                if 0 <= xx < dst and 0 <= yy < dst:
+                    buf[yy][xx] = color
+    out: list[int] = []
+    for y, row in enumerate(buf):
+        for x, color in enumerate(row):
+            if color:
+                out.extend((x, y, color))
+    return out
+
+
 def layer_from(buf: list[list[int]]) -> list[int]:
     out: list[int] = []
     for y, row in enumerate(buf):
@@ -151,23 +176,26 @@ def tito_layers() -> dict[str, list[int]]:
     rect(hair, 42, 18, 3, 6, 5)
 
     mustache = blank()
-    stamp(mustache, 26, 32, [" mm m mm", "mmmmmmmmm"], {"m": 5})
+    stamp(mustache, 26, 36, ["mmmmmmmmm"], {"m": 5})
 
     eyes = blank()
-    rect(eyes, 22, 22, 20, 6, 6)
-    rect(eyes, 23, 23, 8, 4, 13)
-    rect(eyes, 33, 23, 8, 4, 13)
-    pix(eyes, 24, 23, 14)
-    pix(eyes, 34, 23, 14)
-    pix(eyes, 31, 24, 6)
-    pix(eyes, 32, 24, 6)
+    rect(eyes, 22, 26, 20, 6, 6)
+    rect(eyes, 23, 27, 8, 4, 13)
+    rect(eyes, 33, 27, 8, 4, 13)
+    pix(eyes, 24, 27, 14)
+    pix(eyes, 34, 27, 14)
+    pix(eyes, 31, 28, 6)
+    pix(eyes, 32, 28, 6)
     shut = blank()
-    rect(shut, 22, 24, 9, 2, 6)
-    rect(shut, 33, 24, 9, 2, 8)
+    rect(shut, 22, 28, 9, 2, 6)
+    rect(shut, 33, 28, 9, 2, 6)
+    half = blank()
+    rect(half, 23, 28, 8, 1, 13)
+    rect(half, 33, 28, 8, 1, 13)
 
     brows = blank()
-    rect(brows, 22, 20, 8, 2, 5)
-    rect(brows, 34, 20, 8, 2, 5)
+    rect(brows, 22, 24, 8, 2, 5)
+    rect(brows, 34, 24, 8, 2, 5)
 
     bow = blank()
     rect(bow, 21, 40, 8, 6, 10)
@@ -212,7 +240,9 @@ def tito_layers() -> dict[str, list[int]]:
         "mark": layer_from(lit),
         "hand": layer_from(hand),
     }
-    layers.update(mouths(27, 33))
+    layers.update(mouths(27, 37))
+    layers["eyes_half"] = layer_from(half)
+    layers["glasses_low"] = shift(layers["eyes"], 0, 4)
     return layers
 
 
@@ -258,26 +288,31 @@ def paco_layers() -> dict[str, list[int]]:
     pix(hat, 41, 14, 19)
 
     mustache = blank()
-    stamp(mustache, 24, 32, [" mmmmmmm", "mmmmmmmmm"], {"m": 5})
+    stamp(mustache, 24, 36, ["mmmmmmmmm"], {"m": 5})
 
     eyes = blank()
-    rect(eyes, 20, 22, 8, 6, 6)
-    rect(eyes, 31, 22, 8, 6, 6)
-    rect(eyes, 21, 23, 6, 4, 15)
-    rect(eyes, 32, 23, 6, 4, 15)
-    pix(eyes, 22, 24, 6)
-    pix(eyes, 25, 24, 6)
-    pix(eyes, 33, 24, 6)
-    pix(eyes, 36, 24, 6)
-    pix(eyes, 28, 24, 6)
-    pix(eyes, 29, 24, 6)
+    rect(eyes, 20, 26, 8, 6, 6)
+    rect(eyes, 31, 26, 8, 6, 6)
+    rect(eyes, 21, 27, 6, 4, 15)
+    rect(eyes, 32, 27, 6, 4, 15)
+    pix(eyes, 22, 28, 6)
+    pix(eyes, 25, 28, 6)
+    pix(eyes, 33, 28, 6)
+    pix(eyes, 36, 28, 6)
+    pix(eyes, 28, 28, 6)
+    pix(eyes, 29, 28, 6)
     shut = blank()
-    rect(shut, 20, 24, 8, 2, 6)
-    rect(shut, 31, 24, 8, 2, 6)
+    rect(shut, 20, 28, 8, 2, 6)
+    rect(shut, 31, 28, 8, 2, 6)
+    half = blank()
+    rect(half, 20, 28, 8, 1, 6)
+    rect(half, 21, 28, 6, 1, 15)
+    rect(half, 31, 28, 8, 1, 6)
+    rect(half, 32, 28, 6, 1, 15)
 
     brows = blank()
-    rect(brows, 20, 20, 8, 2, 5)
-    rect(brows, 31, 20, 8, 2, 5)
+    rect(brows, 20, 24, 8, 2, 5)
+    rect(brows, 31, 24, 8, 2, 5)
 
     pencil = blank()
     rect(pencil, 41, 10, 2, 12, 22)
@@ -326,7 +361,9 @@ def paco_layers() -> dict[str, list[int]]:
         "line3": lines[2],
         "mark": layer_from(mark),
     }
-    layers.update(mouths(25, 33))
+    layers.update(mouths(25, 37))
+    layers["eyes_half"] = layer_from(half)
+    layers["hat_back"] = shift(layers["hat"], 3, -4)
     return layers
 
 
@@ -364,7 +401,8 @@ CAST_ORDER = {
 
 
 def composite(layers: dict[str, list[int]], mouth: str = "mouth_shut") -> list[list[int]]:
-    buf = blank()
+    size = 96
+    buf = [[0] * size for _ in range(size)]
     who = "tito" if "bow" in layers else "paco"
     for name in CAST_ORDER[who]:
         key = mouth if name == "mouth" else name
@@ -376,18 +414,23 @@ def composite(layers: dict[str, list[int]], mouth: str = "mouth_shut") -> list[l
         if not pixels:
             continue
         for i in range(0, len(pixels), 3):
-            pix(buf, pixels[i], pixels[i + 1], pixels[i + 2])
+            x, y, color = pixels[i], pixels[i + 1], pixels[i + 2]
+            if 0 <= x < size and 0 <= y < size and color:
+                buf[y][x] = color
     return buf
 
 
-def png_bytes(buf: list[list[int]], scale: int) -> bytes:
-    size = GRID * scale
+def png_bytes(buf: list[list[int]], scale: int, pad: int = 0) -> bytes:
+    inner = len(buf) * scale
+    size = inner + pad * 2
     raw = bytearray()
     for y in range(size):
         raw.append(0)
-        row = buf[y // scale]
         for x in range(size):
-            rgb = PALETTE[row[x // scale]]
+            if x < pad or y < pad or x >= size - pad or y >= size - pad:
+                rgb = PALETTE[0]
+            else:
+                rgb = PALETTE[buf[(y - pad) // scale][(x - pad) // scale]]
             raw.extend(bytes.fromhex(rgb[1:]))
 
     def chunk(tag: bytes, data: bytes) -> bytes:
@@ -419,11 +462,11 @@ def mirror(src: Path, dest: Path) -> None:
 
 
 def main() -> None:
-    tito = tito_layers()
-    paco = paco_layers()
+    tito = {name: upscale(pixels) for name, pixels in tito_layers().items()}
+    paco = {name: upscale(pixels) for name, pixels in paco_layers().items()}
     payload = {
         "palette": PALETTE,
-        "grid": GRID,
+        "grid": 96,
         "scale": 2,
         "order": CAST_ORDER,
         "tito": tito,
@@ -431,9 +474,8 @@ def main() -> None:
     }
     text = cast_js(payload)
     stage = (ROOT / "rabbit" / "cast" / "stage.js").read_text(encoding="utf-8")
-    icon_scale = ICON // GRID
-    tito_png = png_bytes(composite(tito), icon_scale)
-    paco_png = png_bytes(composite(paco), icon_scale)
+    tito_png = png_bytes(composite(tito), 5, 16)
+    paco_png = png_bytes(composite(paco), 5, 16)
     for folder, png, icon_name in (
         (ROOT / "rabbit" / "assistant", tito_png, "tito.png"),
         (ROOT / "rabbit" / "paco", paco_png, "paco.png"),

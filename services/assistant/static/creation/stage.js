@@ -42,6 +42,8 @@
     var actionUntil = 0;
     var linesShown = 3;
     var holdUntil = 0;
+    var pinned = true;
+    var sprites = {};
     var last = 0;
     var acc = 0;
     var nod = 0;
@@ -49,7 +51,7 @@
     function setDialog(text, kind) {
       dialog.className = kind || "";
       dialog.textContent = text;
-      dialog.scrollTop = dialog.scrollHeight;
+      if (pinned) dialog.scrollTop = dialog.scrollHeight;
     }
 
     function scheduleBlink(now) {
@@ -57,14 +59,28 @@
       doubleBlink = Math.random() < 0.25;
     }
 
-    function blit(name, ox, oy) {
+    function bake(name) {
+      if (sprites[name]) return sprites[name];
       var pixels = layers[name];
-      if (!pixels) return;
+      if (!pixels) return null;
+      var sheet = document.createElement("canvas");
+      sheet.width = cast.grid * scale;
+      sheet.height = sheet.width;
+      var pen = sheet.getContext("2d");
+      pen.imageSmoothingEnabled = false;
       var i;
       for (i = 0; i < pixels.length; i += 3) {
-        ctx.fillStyle = pal[pixels[i + 2]];
-        ctx.fillRect((pixels[i] + ox) * scale, (pixels[i + 1] + oy) * scale, scale, scale);
+        pen.fillStyle = pal[pixels[i + 2]];
+        pen.fillRect(pixels[i] * scale, pixels[i + 1] * scale, scale, scale);
       }
+      sprites[name] = sheet;
+      return sheet;
+    }
+
+    function blit(name, ox, oy) {
+      var sheet = bake(name);
+      if (!sheet) return;
+      ctx.drawImage(sheet, ox * scale, oy * scale);
     }
 
     function draw(now) {
@@ -89,7 +105,6 @@
       var lean = mode === "listen" ? 1 : 0;
       var browLift = mode === "listen" && who === "tito" ? -1 : 0;
       var glasses = 0;
-      if (mode === "think" && who === "tito") glasses = 3;
       var hatShift = 0;
       if (mode === "think" && who === "paco") hatShift = -2;
       var showBite = mode === "think" && who === "paco";
@@ -100,6 +115,8 @@
       if (mode === "listen") nod = Math.floor(now / 700) % 2;
       else nod = 0;
       var blink = blinkFor > 0;
+      var gaze = Math.floor(now / 2500) % 5;
+      var gazeX = gaze === 1 ? -1 : gaze === 2 ? 1 : 0;
 
       ctx.fillStyle = "#111111";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -107,7 +124,16 @@
       for (n = 0; n < order.length; n += 1) {
         var name = order[n];
         if (name === "mouth") name = mouth;
-        if (name === "eyes" && blink) name = "eyes_shut";
+        if (name === "eyes" && blink) {
+          name = blinkFor === 2 ? "eyes_shut" : "eyes_half";
+          if (!layers[name]) name = "eyes_shut";
+        }
+        if (name === "eyes" && mode === "think" && who === "tito" && layers.glasses_low) {
+          name = "glasses_low";
+        }
+        if (name === "hat" && mode === "think" && who === "paco" && layers.hat_back) {
+          name = "hat_back";
+        }
         if (name === "hand" && !showHand) continue;
         if (name === "mark" && now > actionUntil) continue;
         if (name === "line1" || name === "line2" || name === "line3") {
@@ -121,7 +147,10 @@
           oy += breath + lean + nod;
         }
         if (name === "brows") oy += browLift;
-        if (name === "eyes" || name === "eyes_shut") oy += glasses;
+        if (name === "eyes" || name === "eyes_shut" || name === "eyes_half" || name === "glasses_low") {
+          oy += glasses;
+          ox += gazeX;
+        }
         if (name === "hat") {
           oy += hatShift;
           ox += hatShift ? 2 : 0;
@@ -152,7 +181,7 @@
         acc = 0;
         if (blinkFor > 0) blinkFor -= 1;
         else if (now >= blinkAt) {
-          blinkFor = 2;
+          blinkFor = 3;
           blinkAt = now + (doubleBlink ? 180 : 0);
           if (!doubleBlink) scheduleBlink(now);
           else doubleBlink = false;
@@ -181,7 +210,6 @@
       since = performance.now();
       if (next !== "speak") mouth = "mouth_shut";
       if (next === "think") setDialog("...", "think");
-      if (next === "idle") setDialog("", "");
       if (next === "listen") {
         linesShown = 0;
         holdUntil = 0;
@@ -201,6 +229,7 @@
         full = text || "";
         typed = "";
         holdUntil = 0;
+        pinned = true;
         typeAt = performance.now();
         action = nextAction || "";
         if (action) actionUntil = performance.now() + 2000;
@@ -214,6 +243,7 @@
         setDialog(text || "", "speak");
       },
       scroll: function (delta) {
+        pinned = false;
         dialog.scrollTop += delta;
       },
     };

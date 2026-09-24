@@ -16,17 +16,19 @@ Tito and Paco replace the record circle with a living pixel character. The same 
 Shared motion, 12 fps, canvas smoothing off:
 
 - Breath lifts the head 1 px for half of a 3.8 s cycle.
-- Blink every 2–6 s, closed for 2 frames, sometimes twice.
+- Blink every 2–6 s in three frames (half, shut, half), sometimes twice.
+- Each layer is baked once into an offscreen canvas and composited with `drawImage`.
 - Mouth follows the character being typed. `A/А` open, `O/О/U/У` round, `E/И/I` wide, `M/М/B/Б/P/П` closed lips, other consonants half, space shut.
 - Type rate is one constant: 14 Cyrillic characters per second, 16 Latin. Comma adds 250 ms. Period, `!`, and `?` add 450 ms.
 
 ## Screen (240x282)
 
 - Name row stays.
-- `#stage` is a 128×128 canvas (64×64 grid, scale 2), centered.
+- `#stage` is a 192×192 canvas (96×96 grid, scale 2), centered.
+- The wheel scrolls one dialog line (16 px). Autoscroll stays pinned to the bottom until the wheel moves. Idle keeps the reply on screen until the next PTT.
+- Peek hides the stage. The task list uses the full height. Status and the event log stay one line.
 - `#dialog` sits on the chest, full width, 3 lines at 13 px, pixel border `#FE5000`.
 - Listen shows the transcript in gray once `sttEnded` arrives. Think shows three dots. Speak types the reply. The wheel scrolls the typed lines.
-- Peek open shrinks the canvas to 64×64 in the top-right corner and hides the dialog.
 - No `#rec`. No CSS animation on the stage. No WebGL.
 
 ## Acting

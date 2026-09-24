@@ -8,20 +8,37 @@ html, body {
   font: 13px/1.3 -apple-system, sans-serif;
 }
 #app { padding: 8px; height: 100%; display: flex; flex-direction: column; }
-header h1 {
-  font-size: 16px;
+header {
   display: flex;
   align-items: center;
   gap: 6px;
+  height: 20px;
+  min-height: 20px;
+}
+header h1 {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
 }
 header h1 img {
   width: 20px;
   height: 20px;
   image-rendering: pixelated;
 }
-#status, #count, #event-log, #hint { font-size: 11px; color: #bbb; margin-top: 4px; }
-#hint { color: #666; }
-#count { color: #FE5000; }
+#status, #count, #event-log, #hint { font-size: 11px; color: #bbb; }
+#status, #event-log {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  min-width: 0;
+}
+#status { flex: 1; }
+#hint { color: #666; margin-top: 4px; }
+#count { color: #FE5000; flex: 0 0 auto; }
+#pair:empty { display: none; }
 #pair {
   font: 700 42px/1.1 -apple-system, sans-serif;
   letter-spacing: 0.16em;
@@ -29,12 +46,12 @@ header h1 img {
 }
 #stage-wrap {
   position: relative;
-  height: 148px;
-  margin-top: 4px;
+  height: 200px;
+  margin-top: 2px;
 }
 #stage {
-  width: 128px;
-  height: 128px;
+  width: 192px;
+  height: 192px;
   display: block;
   margin: 0 auto;
   image-rendering: pixelated;
@@ -56,18 +73,11 @@ header h1 img {
 }
 #dialog.user { color: #9a9188; }
 #dialog.think { color: #FE5000; text-align: center; letter-spacing: 0.2em; }
-.peek-open #stage-wrap { height: 64px; }
-.peek-open #stage {
-  width: 64px;
-  height: 64px;
-  position: absolute;
-  right: 0;
-  top: 0;
-  margin: 0;
-}
+.peek-open #stage-wrap,
 .peek-open #dialog { display: none; }
 #peek {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   margin-top: 8px;
 }
