@@ -192,6 +192,20 @@ def test_pencil_does_not_cross_the_brim() -> None:
     assert cells("pencil_touch").isdisjoint(brim)
 
 
+def test_ostanovka_sign_is_symmetric_512() -> None:
+    module = build()
+    buf = module.ostanovka_buf()
+    module.assert_sym(buf, "ostanovka")
+    png = module.png_bytes(buf, 5, 16)
+    width, height = struct.unpack(">II", png[16:24])
+    assert (width, height) == (512, 512)
+    flat = [color for row in buf for color in row]
+    assert 9 in flat
+    assert 21 in flat
+    assert 11 in flat
+    assert 12 in flat
+
+
 def test_idle_icon_is_512() -> None:
     module = build()
     data = module.payload()

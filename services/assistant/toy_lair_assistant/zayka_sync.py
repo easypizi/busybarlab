@@ -69,13 +69,16 @@ def _attach_paco(deps: Any, path: Path) -> None:
 
     zone = ZoneInfo(settings.timezone)
     root = path.expanduser()
+    notify = getattr(deps, "notify", None)
+    if notify is not None and hasattr(notify, "voice"):
+        notify = notify.voice("paco")
     deps.paco = PacoAgent(
         llm=OpenAILLM(settings.openai_api_key, settings.openai_model),
         vault=PacoVault(root, zone),
         writer=ZaykaWrite(root, git_runner, zone),
         now=deps.clock.now,
         store=getattr(deps, "store", None),
-        notify=getattr(deps, "notify", None),
+        notify=notify,
     )
 
 

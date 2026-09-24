@@ -33,6 +33,12 @@ from toy_lair_assistant.zayka_token import alert_if_expired
 LOG = logging.getLogger("toy_lair_assistant")
 
 
+def _signed(notify: Any, who: str) -> Any:
+    if notify is not None and hasattr(notify, "voice"):
+        return notify.voice(who)
+    return notify
+
+
 @dataclass
 class AppDeps:
     settings: Settings
@@ -105,7 +111,7 @@ def create_app(
                 alert_if_expired(
                     deps.settings,
                     deps.store,
-                    deps.notify,
+                    _signed(deps.notify, "paco"),
                     deps.clock.now,
                     lambda url, headers: httpx.get(url, headers=headers, timeout=10),
                 )
@@ -171,7 +177,7 @@ def create_app(
             return {"transcript": "", "reply": str(exc), "audio_base64": ""}
         try:
             result = invoke_agent(
-                deps.agent, transcript, channel="r1", notify=deps.notify
+                deps.agent, transcript, channel="r1", notify=_signed(deps.notify, "tito")
             )
         except Exception as exc:
             return {"transcript": transcript, "reply": str(exc), "audio_base64": ""}
@@ -206,7 +212,9 @@ def create_app(
         if deps.agent is None:
             raise HTTPException(status_code=503, detail="agent is not configured")
         message = str(payload.get("text") or "").strip()
-        result = invoke_agent(deps.agent, message, channel="r1", notify=deps.notify)
+        result = invoke_agent(
+            deps.agent, message, channel="r1", notify=_signed(deps.notify, "tito")
+        )
         used = set(getattr(result, "used_tools", []) or [])
         action = "task" if used & {"todoist_add", "plan_apply"} else ""
         return {"reply": result.reply, "action": action}
@@ -251,9 +259,13 @@ def create_app(
 
     @app.post("/telegram/webhook")
     def telegram_webhook(update: dict[str, Any]) -> dict[str, bool]:
-        if deps.agent is None or deps.notify is None:
+        if deps.notify is None:
             raise HTTPException(status_code=503, detail="telegram is not configured")
-        deps.notify.handle_update(update, deps.agent, deps.speech)
+        if deps.paco is None:
+            attach_zayka(deps)
+        if deps.agent is None and deps.paco is None:
+            raise HTTPException(status_code=503, detail="telegram is not configured")
+        deps.notify.handle_update(update, deps.agent, deps.speech, paco=deps.paco)
         return {"ok": True}
 
     @app.post("/api/pair/start")

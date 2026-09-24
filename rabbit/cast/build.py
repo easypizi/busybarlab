@@ -818,6 +818,38 @@ def payload() -> dict:
     }
 
 
+def ostanovka_buf() -> list[list[int]]:
+    orange = 9
+    grey = 21
+    teal = 11
+    white = 8
+    pink = 12
+    buf = blank()
+    left, top, width, height = 16, 14, 64, 40
+    rect(buf, left, top, width, height, orange)
+    right = left + width - 1
+    bottom = top + height - 1
+    size = 8
+    for i in range(size):
+        count = size - i
+        for k in range(count):
+            buf[top + i][left + k] = 0
+            buf[top + i][right - k] = 0
+            buf[bottom - i][left + k] = 0
+            buf[bottom - i][right - k] = 0
+    rect(buf, left, bottom + 1, width, 2, teal)
+    rect(buf, 45, bottom + 3, 6, 30, grey)
+    erase(buf, 28, 26, 40, 16)
+    erase(buf, 34, 22, 28, 6)
+    erase(buf, 32, 40, 8, 6)
+    erase(buf, 56, 40, 8, 6)
+    sym_rect(buf, 32, 28, 10, 6, white)
+    pix(buf, 47, 18, pink)
+    pix(buf, 48, 18, pink)
+    assert_sym(buf, "ostanovka")
+    return buf
+
+
 def main() -> None:
     data = payload()
     text = cast_js(data)
@@ -835,6 +867,9 @@ def main() -> None:
         (folder / "stage.js").write_text(stage, encoding="utf-8")
         (folder / icon_name).write_bytes(png)
         (folder / "icon.png").write_bytes(png)
+    sign = png_bytes(ostanovka_buf(), 5, 16)
+    (ROOT / "rabbit" / "cast" / "ostanovka.png").write_bytes(sign)
+    (ROOT / "rabbit" / "assistant" / "ostanovka.png").write_bytes(sign)
     mirror(ROOT / "rabbit" / "assistant", ROOT / "services" / "assistant" / "static" / "creation")
     mirror(ROOT / "rabbit" / "paco", ROOT / "services" / "assistant" / "static" / "paco")
 

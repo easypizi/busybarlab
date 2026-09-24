@@ -60,7 +60,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             settings.telegram_chat_id,
             store=store,
             todoist=todoist,
-            photo_path=creation_dir() / "tito.png",
+            photo_path=creation_dir() / "ostanovka.png",
             now=clock.now,
         )
         try:
@@ -70,7 +70,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     if calendar is not None:
         calendar.on_auth_error = make_auth_alerter(
             store,
-            notify.send_text if notify else (lambda text: None),
+            notify.voice("tito").send_text if notify else (lambda text: None),
             clock.now,
         )
     zayka = None
@@ -128,7 +128,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             writer=ZaykaWrite(root, git_runner, zone),
             now=clock.now,
             store=store,
-            notify=notify,
+            notify=notify.voice("paco") if notify else None,
         )
     app = create_app(
         settings,
@@ -147,7 +147,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             todoist=todoist,
             calendar=calendar,
             store=store,
-            notify=notify,
+            notify=notify.voice("tito"),
             lead_minutes=settings.reminder_lead_minutes,
             briefing_hour=settings.briefing_hour,
             timezone=settings.timezone,

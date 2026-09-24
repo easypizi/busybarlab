@@ -51,7 +51,8 @@ def test_text_from_allowed_chat_goes_to_agent() -> None:
     )
     assert agent.seen == ["add milk"]
     assert sent[0]["chat_id"] == "111"
-    assert sent[0]["text"] == "done: add milk"
+    assert sent[0]["text"].startswith("<b>Tito</b>")
+    assert "done: add milk" in sent[0]["text"]
     assert sent[0]["parse_mode"] == "HTML"
     assert sent[0]["reply_markup"]["inline_keyboard"][0][0]["text"] == "👍"
 
@@ -234,8 +235,9 @@ def test_help_sends_photo(tmp_path) -> None:
         FakeSpeech(),
     )
     assert sent[0]["_method"] == "sendPhoto"
+    assert "Остановка" in sent[0]["caption"]
     assert "Tito" in sent[0]["caption"]
-    assert "<b>Commands</b>" in sent[0]["caption"]
+    assert "Paco" in sent[0]["caption"]
     assert "/plan" in sent[0]["caption"]
 
 
@@ -483,8 +485,10 @@ def test_ensure_profile_once_a_day() -> None:
     names = [item.get("_method") for item in sent]
     assert names.count("setMyName") == 1
     assert names.count("setMyCommands") == 1
-    assert sent[0]["name"] == "Tito"
+    assert sent[0]["name"] == "Остановка"
+    assert store.seen("tg_profile:v2:2026-09-19")
     commands = next(item for item in sent if item.get("_method") == "setMyCommands")["commands"]
+    assert {item["command"] for item in commands} >= {"tito", "paco", "today"}
     plan = next(item for item in commands if item["command"] == "plan")
     assert "line" in plan["description"].lower() or "слот" in plan["description"].lower()
 
@@ -554,7 +558,7 @@ def test_agent_week_question_sends_card() -> None:
             )
 
     bot.handle_update(
-        {"message": {"chat": {"id": 111}, "text": "что на неделю?"}},
+        {"message": {"chat": {"id": 111}, "text": "Tito, что на неделю?"}},
         WeekAsk(),
         FakeSpeech(),
     )
@@ -562,3 +566,190 @@ def test_agent_week_question_sends_card() -> None:
     assert "<b>Week</b>" in text
     assert "\n" in text
     assert "мама, бег, уборка" not in text
+
+
+class _PacoResult:
+    def __init__(self, reply: str, peek: dict) -> None:
+        self.reply = reply
+        self.peek = peek
+
+
+class FakePaco:
+    def __init__(self, reply: str = "saved", peek: dict | None = None) -> None:
+        self.seen: list[str] = []
+        self._reply = reply
+        self._peek = peek or {}
+
+    def handle_text(self, text: str) -> _PacoResult:
+        self.seen.append(text)
+        return _PacoResult(self._reply, self._peek)
+
+
+def test_paco_command_signs_the_reply() -> None:
+    sent: list[dict] = []
+    paco = FakePaco()
+    bot = TelegramBot(token="bot", chat_id="111", sender=lambda payload: sent.append(payload))
+    bot.handle_update(
+        {"message": {"chat": {"id": 111}, "text": "/paco запиши молоко"}},
+        FakeAgent(),
+        FakeSpeech(),
+        paco=paco,
+    )
+    assert paco.seen == ["запиши молоко"]
+    assert sent[0]["text"].startswith("<b>Paco</b>")
+    assert "saved" in sent[0]["text"]
+
+
+def test_names_and_reply_route_to_the_right_agent() -> None:
+    sent: list[dict] = []
+    agent = FakeAgent()
+    paco = FakePaco()
+    bot = TelegramBot(token="bot", chat_id="111", sender=lambda payload: sent.append(payload))
+    bot.handle_update(
+        {"message": {"chat": {"id": 111}, "text": "Пако, где HireScope"}},
+        agent,
+        FakeSpeech(),
+        paco=paco,
+    )
+    bot.handle_update(
+        {"message": {"chat": {"id": 111}, "text": "Tito, что сегодня"}},
+        agent,
+        FakeSpeech(),
+        paco=paco,
+    )
+    bot.handle_update(
+        {
+            "message": {
+                "chat": {"id": 111},
+                "text": "ещё мысль",
+                "reply_to_message": {"text": "Paco\nWrote to Inbox"},
+            }
+        },
+        agent,
+        FakeSpeech(),
+        paco=paco,
+    )
+    assert paco.seen == ["где HireScope", "ещё мысль"]
+    assert agent.seen == ["что сегодня"]
+    assert sent[1]["text"].startswith("<b>Tito</b>")
+
+
+def test_unnamed_message_asks_who_and_keeps_the_text() -> None:
+    sent: list[dict] = []
+    store = MemoryStore()
+    now = datetime(2026, 9, 24, 12, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+    agent = FakeAgent()
+    paco = FakePaco()
+    bot = TelegramBot(
+        token="bot",
+        chat_id="111",
+        sender=lambda payload: sent.append(payload),
+        store=store,
+        now=lambda: now,
+    )
+    bot.handle_update(
+        {"message": {"chat": {"id": 111}, "text": "молоко"}},
+        agent,
+        FakeSpeech(),
+        paco=paco,
+    )
+    assert agent.seen == []
+    assert paco.seen == []
+    assert len(sent) == 1
+    assert sent[0]["text"] == "Who is this for?"
+    row = sent[0]["reply_markup"]["inline_keyboard"][0]
+    assert [button["text"] for button in row] == ["Tito", "Paco"]
+    assert row[0]["callback_data"].startswith("to:tito:")
+    assert row[1]["callback_data"].startswith("to:paco:")
+    route_id = row[1]["callback_data"].split(":")[2]
+    assert store.get_plan(f"route:{route_id}")["text"] == "молоко"
+    sent.clear()
+    bot.handle_update(
+        {
+            "callback_query": {
+                "id": "q9",
+                "data": row[1]["callback_data"],
+                "message": {"chat": {"id": 111}, "message_id": 4, "text": "Who is this for?"},
+            }
+        },
+        agent,
+        FakeSpeech(),
+        paco=paco,
+    )
+    assert paco.seen == ["молоко"]
+    edit = next(item for item in sent if item.get("_method") == "editMessageText")
+    assert "молоко" in edit["text"]
+    assert "→ Paco" in edit["text"]
+    assert edit["reply_markup"] == {"inline_keyboard": []}
+    reply = next(item for item in sent if str(item.get("text", "")).startswith("<b>Paco</b>"))
+    assert "saved" in reply["text"]
+
+
+def test_unknown_route_says_the_message_is_gone() -> None:
+    sent: list[dict] = []
+    bot = TelegramBot(
+        token="bot",
+        chat_id="111",
+        sender=lambda payload: sent.append(payload),
+        store=MemoryStore(),
+    )
+    bot.handle_update(
+        {
+            "callback_query": {
+                "id": "q10",
+                "data": "to:paco:deadbeef",
+                "message": {"chat": {"id": 111}, "message_id": 8, "text": "Who is this for?"},
+            }
+        },
+        FakeAgent(),
+        FakeSpeech(),
+        paco=FakePaco(),
+    )
+    assert any("That message is gone" in str(item.get("text") or "") for item in sent)
+
+
+def test_missing_paco_says_so() -> None:
+    sent: list[dict] = []
+    agent = FakeAgent()
+    bot = TelegramBot(token="bot", chat_id="111", sender=lambda payload: sent.append(payload))
+    bot.handle_update(
+        {"message": {"chat": {"id": 111}, "text": "/paco hello"}},
+        agent,
+        FakeSpeech(),
+    )
+    assert agent.seen == []
+    assert sent[0]["text"] == "Paco is not here right now."
+
+
+def test_paco_hits_are_listed(caplog) -> None:
+    sent: list[dict] = []
+    paco = FakePaco(
+        reply="Three notes.",
+        peek={"kind": "hits", "items": [{"title": "Hire", "path": "10 Evergreen/hire.md"}]},
+    )
+    bot = TelegramBot(token="bot", chat_id="111", sender=lambda payload: sent.append(payload))
+    with caplog.at_level(logging.INFO):
+        bot.handle_update(
+            {"message": {"chat": {"id": 111}, "text": "/paco где hire"}},
+            FakeAgent(),
+            FakeSpeech(),
+            paco=paco,
+        )
+    assert paco.seen == ["где hire"]
+    assert sent[0]["text"].startswith("<b>Paco</b>")
+    assert "Hire" in sent[0]["text"]
+    assert "10 Evergreen/hire.md" in sent[0]["text"]
+    assert "agent channel=telegram-paco" in caplog.text
+    assert "ms=" in caplog.text
+
+
+def test_voice_keeps_buttons_and_signs() -> None:
+    sent: list[dict] = []
+    bot = TelegramBot(token="bot", chat_id="111", sender=lambda payload: sent.append(payload))
+    bot.voice("tito").send_message(
+        "Soon: rent",
+        buttons=[[{"text": "✅ Done", "callback_data": "task:done:9"}]],
+    )
+    assert sent[0]["text"].startswith("<b>Tito</b>")
+    assert "Soon: rent" in sent[0]["text"]
+    assert sent[0]["reply_markup"]["inline_keyboard"][0][0]["callback_data"] == "task:done:9"

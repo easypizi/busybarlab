@@ -119,8 +119,20 @@ def test_attach_zayka_builds_paco_after_clone(tmp_path: Path) -> None:
         clock = Clock()
         store = None
 
+    class Notify:
+        def __init__(self) -> None:
+            self.signed = ""
+
+        def voice(self, who: str):
+            self.signed = who
+            return self
+
+    notify = Notify()
+    Deps.notify = notify
     attach_zayka(Deps, sync_fn=lambda settings: dest)
     assert isinstance(Deps.paco, PacoAgent)
+    assert Deps.paco.notify is notify
+    assert notify.signed == "paco"
 
 
 def test_settings_skip_auto_sync_under_pytest() -> None:
