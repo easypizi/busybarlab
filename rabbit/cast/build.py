@@ -76,6 +76,7 @@ HEAD_NAMES = {
     "pencil_ear",
     "pencil_touch",
     "pencil_bite",
+    "fringe",
 }
 
 
@@ -162,148 +163,224 @@ def assert_sym(buf: list[list[int]], name: str) -> None:
                 raise ValueError(f"{name} asymmetric at {x},{y}")
 
 
-SKIN = {"s": 1, "S": 2, "w": 8, "i": 3, "p": 7, "k": 6, "m": 5, "h": 25}
+EYE_X = 38
+EYE_W = 6
 
 
-def _eyes(kind: str) -> list[str]:
-    bridge = "ssssssss"
-    if kind == "open":
-        eye = "wwwwww wwiiww wippiw wwiiww wwwwww".split()
-    elif kind == "half":
-        eye = "ssssss ssssss kkkkkk wippiw wwwwww".split()
-    elif kind == "shut":
-        eye = "ssssss ssssss ssssss kkkkkk ssssss".split()
-    elif kind == "up":
-        eye = "wwwwww wippiw wwwwww wwwwww wwwwww".split()
-    elif kind == "side_l":
-        eye_l = "wwwwww wwiiww wpiiiw wwiiww wwwwww".split()
-        eye_r = "wwwwww wwiiww wiiipw wwiiww wwwwww".split()
-        return [eye_l[i] + bridge + eye_r[i] for i in range(5)]
-    elif kind == "side_r":
-        eye_l = "wwwwww wwiiww wiiipw wwiiww wwwwww".split()
-        eye_r = "wwwwww wwiiww wpiiiw wwiiww wwwwww".split()
-        return [eye_l[i] + bridge + eye_r[i] for i in range(5)]
+class FaceRig:
+    def __init__(
+        self,
+        hair_bottom: int,
+        brow_y: int,
+        eye_y: int,
+        ear_y: int,
+        nose_y: int,
+        mustache_y: int,
+        mouth_y: int,
+        chin_y: int,
+        glasses: bool,
+        droop: bool,
+    ) -> None:
+        self.hair_bottom = hair_bottom
+        self.brow_y = brow_y
+        self.eye_y = eye_y
+        self.ear_y = ear_y
+        self.nose_y = nose_y
+        self.mustache_y = mustache_y
+        self.mouth_y = mouth_y
+        self.chin_y = chin_y
+        self.glasses = glasses
+        self.droop = droop
+
+
+TITO = FaceRig(29, 32, 36, 36, 43, 49, 51, 56, True, False)
+PACO = FaceRig(36, 36, 41, 41, 48, 51, 54, 59, False, True)
+TITO_EYE = {"l": 14, "m": 5, "p": 7, "S": 2}
+PACO_EYE = {"w": 8, "a": 4, "p": 7, "S": 2, "m": 5, "h": 25}
+MOUTH_COLORS = {"S": 2, "h": 25, "k": 6, "8": 8, "s": 1}
+
+
+def _eye_pair(kind: str, tinted: bool) -> tuple[list[str], list[str]]:
+    if tinted:
+        same = {
+            "open": ["llllll", "llmmll", "lmppml", "llmmll", "llllll"],
+            "half": ["SSSSSS", "llllll", "lmppml", "llmmll", "llllll"],
+            "shut": ["SSSSSS", "SSSSSS", "mmmmmm", "SSSSSS", "llllll"],
+            "up": ["llllll", "lmppml", "llmmll", "llllll", "llllll"],
+            "side_l": ["llllll", "llmmll", "lpmmll", "llmmll", "llllll"],
+            "side_r": ["llllll", "llmmll", "llmmpl", "llmmll", "llllll"],
+        }[kind]
     else:
-        raise ValueError(kind)
-    return [eye[i] + bridge + eye[i] for i in range(5)]
-
-
-def eyes_layer(kind: str, drop: int = 0) -> list[int]:
-    buf = blank()
-    rows = _eyes(kind)
-    top = 36 + drop
+        same = {
+            "open": [" mmmm ", "wwwwww", "whaaww", "wappaw", "wwaaww", " SSSS "],
+            "half": ["mmmmmm", " mmmm ", "wwaaww", "wappaw", "wwaaww", " SSSS "],
+            "shut": ["mmmmmm", "mmmmmm", "mmmmmm", " SSSS ", "wwwwww", " SSSS "],
+            "up": [" mmmm ", "wwwwww", "wappaw", "wwaaww", "wwwwww", " SSSS "],
+            "side_l": [" mmmm ", "wwwwww", "wwwaaw", "wwwapw", "wwwaaw", " SSSS "],
+            "side_r": [" mmmm ", "wwwwww", "waawww", "wpawww", "waawww", " SSSS "],
+        }[kind]
     if kind in {"side_l", "side_r"}:
-        stamp_even(buf, top, rows, SKIN)
-    else:
-        stamp_axis(buf, top, rows, SKIN)
+        return same, same
+    return same, [row[::-1] for row in same]
+
+
+def eyes_layer(kind: str, rig: FaceRig) -> list[int]:
+    buf = blank()
+    left, right = _eye_pair(kind, rig.glasses)
+    colors = TITO_EYE if rig.glasses else PACO_EYE
+    stamp(buf, EYE_X, rig.eye_y, left, colors)
+    stamp(buf, (GRID - 1) - (EYE_X + EYE_W - 1), rig.eye_y, right, colors)
+    if kind not in {"side_l", "side_r"}:
         assert_sym(buf, "eyes_" + kind)
     return layer_from(buf)
 
 
-def brows_layer(kind: str, drop: int = 0) -> list[int]:
+def brows_layer(kind: str, rig: FaceRig) -> list[int]:
     buf = blank()
+    y = rig.brow_y
     if kind == "up":
-        sym_rect(buf, 38, 29 + drop, 6, 2, 5)
+        sym_rect(buf, 38, y - 1, 6, 2, 5)
     elif kind == "knit":
-        sym_rect(buf, 42, 32 + drop, 5, 2, 5)
-        pix(buf, 41, 31 + drop, 5)
-        pix(buf, 54, 31 + drop, 5)
-        pix(buf, 46, 34 + drop, 5)
-        pix(buf, 49, 34 + drop, 5)
+        sym_rect(buf, 42, y + 1, 4, 2, 5)
+        pix(buf, 41, y, 5)
+        pix(buf, 54, y, 5)
     else:
-        sym_rect(buf, 38, 32 + drop, 6, 2, 5)
+        sym_rect(buf, 38, y, 6, 2, 5)
     assert_sym(buf, "brows_" + kind)
     return layer_from(buf)
 
 
-def mustache_layer(open_shape: bool, drop: int = 0) -> list[int]:
+def mustache_layer(open_shape: bool, rig: FaceRig) -> list[int]:
     buf = blank()
-    top = (48 if open_shape else 50) + drop
-    rows = [
-        " mmmmmmmmmmmmmm ",
-        "mm            mm",
-        "mm            mm",
-        "mmm          mmm",
-    ]
-    if open_shape:
-        rows = [
-            "mmmmmmmmmmmmmmmm",
-            "mm            mm",
-            " mmm        mmm ",
-        ]
-    stamp_axis(buf, top, rows, {"m": 5})
+    top = rig.mustache_y - (1 if open_shape else 0)
+    if rig.droop:
+        stamp_axis(
+            buf,
+            top,
+            [
+                "      aaaaaaaaaaaaaa      ",
+                "   mmmmmmmmmmmmmmmmmmmm   ",
+                "  mmmmmmmmmmmmmmmmmmmmmm  ",
+            ],
+            {"a": 3, "m": 5},
+        )
+        stamp_axis(
+            buf,
+            rig.mustache_y + 3,
+            [
+                "mmmmmm              mmmmmm",
+                "mmmmmm              mmmmmm",
+                "mmmm                  mmmm",
+                "mmm                    mmm",
+                "mm                      mm",
+            ],
+            {"m": 5},
+        )
+    else:
+        stamp_axis(
+            buf,
+            top,
+            [
+                "mmmmmmmmmmmmmmmmmm",
+                "mmmmmmmmmmmmmmmmmm",
+                "aaaaaaaaaaaaaaaaaa",
+                "mm              mm",
+                "mm              mm",
+            ],
+            {"m": 5, "a": 3},
+        )
     assert_sym(buf, "mustache")
     return layer_from(buf)
 
 
-def mouth_layer(kind: str, drop: int = 0) -> list[int]:
+def mouth_layer(kind: str, rig: FaceRig) -> list[int]:
     rows = {
-        "shut": ["  ssssss  ", " ssssssss ", "  SSSSSS  "],
-        "mid": ["   ssss   ", "  k8ss8k  ", "   ssss   "],
-        "a": ["  kkkkkk  ", " k8s88s8k ", "  kkkkkk  "],
-        "o": ["   kkkk   ", "  k8ss8k  ", "  kssssk  ", "   kkkk   "],
-        "e": [" kkkkkkkk ", "k8ssssss8k", " kkkkkkkk "],
-        "m": [" ssssssss ", " SSSSSSSS "],
-        "con": ["  kkkkkk  ", " kssssssk ", "  kkkkkk  "],
+        "shut": ["   SSSSSSSS   ", "  SSSSSSSSSS  ", "   hhhhhhhh   "],
+        "mid": ["    ssssss    ", "   k8ssss8k   ", "    ssssss    "],
+        "a": ["   kkkkkkkk   ", "  k8ssssss8k  ", "   kkkkkkkk   "],
+        "o": ["    kkkkkk    ", "   k8ssss8k   ", "    kkkkkk    "],
+        "e": ["  kkkkkkkkkk  ", " k8ssssssss8k ", "  kkkkkkkkkk  "],
+        "m": ["  SSSSSSSSSS  ", "   SSSSSSSS   ", "  SSSSSSSSSS  "],
+        "con": ["   kkkkkkkk   ", "  kssssssssk  ", "   kkkkkkkk   "],
     }[kind]
     buf = blank()
-    stamp_axis(buf, 56 + drop, rows, {"s": 1, "S": 2, "k": 6, "8": 8})
+    stamp_axis(buf, rig.mouth_y, rows, {"S": 2, "h": 25, "k": 6, "8": 8, "s": 1})
     assert_sym(buf, "mouth_" + kind)
     return layer_from(buf)
 
 
-def _lens(buf: list[list[int]], x: int, y: int, tint: int) -> None:
-    """Frame with an open window so the eye layer stays visible."""
+def _frame(buf: list[list[int]], x: int, y: int) -> None:
     rect(buf, x, y, 8, 7, 6)
     erase(buf, x + 1, y + 1, 6, 5)
-    rect(buf, x + 1, y + 1, 6, 1, tint)
-    rect(buf, x + 1, y + 5, 6, 1, tint)
 
 
-def glasses_layer(low: bool, drop: int = 0, round_frame: bool = False) -> list[int]:
+def glasses_layer(low: bool, rig: FaceRig) -> list[int]:
     buf = blank()
-    y = (42 if low else 35) + drop
-    tint = 15 if round_frame else 13
-    _lens(buf, 36, y, tint)
-    _lens(buf, 52, y, tint)
-    pix(buf, 39, y + 2, 14)
-    pix(buf, 56, y + 2, 14)
-    if not round_frame:
-        rect(buf, 44, y + 2, 8, 2, 6)
-    else:
-        rect(buf, 44, y + 3, 8, 1, 6)
-        for corner_y in (y, y + 6):
-            erase(buf, 36, corner_y, 1, 1)
-            erase(buf, 43, corner_y, 1, 1)
-            erase(buf, 52, corner_y, 1, 1)
-            erase(buf, 59, corner_y, 1, 1)
-    sym_rect(buf, 30, y + 2, 6, 2, 6)
-    if low:
-        sym_rect(buf, 32, y - 4, 2, 4, 6)
+    # Two pixels down still leaves the eyes in the frame. A longer drop lands on the mustache.
+    y = rig.eye_y + (1 if low else -1)
+    _frame(buf, 37, y)
+    _frame(buf, 51, y)
+    rect(buf, 44, y + 2, 8, 2, 6)
+    sym_rect(buf, 30, y + 2, 8, 2, 6)
     assert_sym(buf, "glasses")
     return layer_from(buf)
 
 
-def face_base(cy: float, rx: float, ry: float) -> tuple[list[list[int]], list[list[int]]]:
-    head = blank()
-    disc(head, AXIS, cy, rx, ry, 1)
-    disc(head, AXIS, cy + 6, rx - 4, ry - 6, 25)
-    sym_rect(head, 30, int(cy) - 2, 4, 8, 1)
-    pix(head, 47, int(cy) + 2, 2)
-    pix(head, 48, int(cy) + 2, 2)
-    pix(head, 47, int(cy) + 4, 2)
-    pix(head, 48, int(cy) + 4, 2)
-    hair = blank()
-    disc(hair, AXIS, cy - 12, rx, 9, 4)
-    disc(hair, AXIS, cy - 14, rx - 2, 6, 3)
-    sym_rect(hair, 32, int(cy) - 8, 3, 8, 5)
-    assert_sym(head, "head")
-    assert_sym(hair, "hair")
-    return head, hair
+def draw_head(rig: FaceRig, cy: float, rx: float, ry: float) -> list[list[int]]:
+    buf = blank()
+    disc(buf, AXIS, cy, rx, ry, 1)
+    sym_rect(buf, 30, rig.ear_y, 4, 8, 1)
+    sym_rect(buf, 31, rig.ear_y + 2, 2, 4, 2)
+    rect(buf, 44, rig.brow_y - 2, 8, 1, 25)
+    stamp_axis(buf, rig.nose_y, ["  SS  ", "  hh  ", " hSSh "], {"S": 2, "h": 25})
+    rect(buf, 44, rig.chin_y, 8, 1, 2)
+    assert_sym(buf, "head")
+    return buf
+
+
+def tito_hair(rig: FaceRig) -> list[list[int]]:
+    buf = blank()
+    for y in range(22, rig.hair_bottom + 1):
+        skull_y = y + 4
+        dy = (skull_y + 0.5 - 42) / 16
+        room = max(0.0, 1 - dy * dy)
+        half = int(room**0.5 * 16) + 2
+        left = AXIS - half + 1
+        right = AXIS + half
+        if y <= 24:
+            left += 1
+            right -= 1
+        for x in range(left, right + 1):
+            pix(buf, x, y, 3)
+    pix(buf, 47, rig.hair_bottom + 1, 3)
+    pix(buf, 48, rig.hair_bottom + 1, 3)
+    for i, y in enumerate(range(23, rig.hair_bottom)):
+        pix(buf, 41 + i, y, 5)
+        pix(buf, 42 + i, y, 5)
+        pix(buf, 49 + i, y, 4)
+        pix(buf, 52 + i // 2, y, 4)
+    rect(buf, 36, rig.hair_bottom, 2, rig.ear_y - rig.hair_bottom, 5)
+    rect(buf, 58, rig.hair_bottom, 2, rig.ear_y - rig.hair_bottom, 5)
+    return buf
+
+
+def paco_hair(rig: FaceRig) -> list[list[int]]:
+    buf = blank()
+    sym_rect(buf, 33, rig.ear_y, 2, 6, 5)
+    assert_sym(buf, "paco hair")
+    return buf
+
+
+def paco_fringe(rig: FaceRig) -> list[list[int]]:
+    buf = blank()
+    stamp_axis(buf, rig.brow_y - 2, ["  aaaaaaaa  ", " aaaaaaaaaa "], {"a": 4})
+    assert_sym(buf, "fringe")
+    return buf
 
 
 def tito_layers() -> dict[str, list[int]]:
-    head, hair = face_base(42, 17, 16)
+    head = draw_head(TITO, 42, 16, 16)
+    hair = tito_hair(TITO)
     body = blank()
     disc(body, AXIS, 78, 22, 16, 6)
     rect(body, 28, 70, 40, 26, 6)
@@ -368,7 +445,7 @@ def tito_layers() -> dict[str, list[int]]:
         return layer_from(buf)
 
     glint = blank()
-    rect(glint, 39, 37, 2, 2, 14)
+    rect(glint, 38, 37, 2, 1, 8)
 
     layers = {
         "body": layer_from(body),
@@ -382,18 +459,18 @@ def tito_layers() -> dict[str, list[int]]:
         "cal_2": page(2, False),
         "cal_lit": page(0, True),
         "glint": layer_from(glint),
-        "mustache": mustache_layer(False),
-        "mustache_open": mustache_layer(True),
-        "glasses": glasses_layer(False),
-        "glasses_low": glasses_layer(True),
-        "brows": brows_layer("rest"),
-        "brows_up": brows_layer("up"),
-        "brows_knit": brows_layer("knit"),
+        "mustache": mustache_layer(False, TITO),
+        "mustache_open": mustache_layer(True, TITO),
+        "glasses": glasses_layer(False, TITO),
+        "glasses_low": glasses_layer(True, TITO),
+        "brows": brows_layer("rest", TITO),
+        "brows_up": brows_layer("up", TITO),
+        "brows_knit": brows_layer("knit", TITO),
     }
     for kind in ("open", "half", "shut", "up", "side_l", "side_r"):
-        layers["eyes_" + kind] = eyes_layer(kind)
+        layers["eyes_" + kind] = eyes_layer(kind, TITO)
     for kind in ("shut", "mid", "a", "o", "e", "m", "con"):
-        layers["mouth_" + kind] = mouth_layer(kind)
+        layers["mouth_" + kind] = mouth_layer(kind, TITO)
     return layers
 
 
@@ -418,13 +495,8 @@ def _brim(buf: list[list[int]], y: int, lift_center: int) -> None:
 
 
 def paco_layers() -> dict[str, list[int]]:
-    drop = 2
-    head, _dome = face_base(46, 15, 14)
-    hair = blank()
-    rect(hair, 42, 33, 12, 3, 4)
-    rect(hair, 44, 33, 8, 1, 5)
-    sym_rect(hair, 32, 34, 4, 10, 5)
-    assert_sym(hair, "paco hair")
+    head = draw_head(PACO, 46, 15, 13)
+    hair = paco_hair(PACO)
     body = blank()
     disc(body, AXIS, 80, 20, 14, 23)
     rect(body, 30, 68, 36, 28, 23)
@@ -478,7 +550,7 @@ def paco_layers() -> dict[str, list[int]]:
     rect(pencil_touch, 56, 28, 4, 2, 1)
 
     bite = blank()
-    rect(bite, 50, 57, 12, 2, 22)
+    rect(bite, 50, 55, 12, 2, 22)
     pix(bite, 62, 57, 8)
     pix(bite, 50, 58, 2)
 
@@ -530,6 +602,7 @@ def paco_layers() -> dict[str, list[int]]:
         "body": layer_from(body),
         "head": layer_from(head),
         "hair": layer_from(hair),
+        "fringe": layer_from(paco_fringe(PACO)),
         "hat_crown": layer_from(hat_crown),
         "hat_band": layer_from(hat_band),
         "hat_brim": layer_from(hat_brim),
@@ -547,18 +620,16 @@ def paco_layers() -> dict[str, list[int]]:
         "mark_0": check(0),
         "mark_1": check(1),
         "mark_2": check(2),
-        "mustache": mustache_layer(False, drop),
-        "mustache_open": mustache_layer(True, drop),
-        "glasses": glasses_layer(False, drop, round_frame=True),
-        "glasses_low": glasses_layer(True, drop, round_frame=True),
-        "brows": brows_layer("rest", drop),
-        "brows_up": brows_layer("up", drop),
-        "brows_knit": brows_layer("knit", drop),
+        "mustache": mustache_layer(False, PACO),
+        "mustache_open": mustache_layer(True, PACO),
+        "brows": brows_layer("rest", PACO),
+        "brows_up": brows_layer("up", PACO),
+        "brows_knit": brows_layer("knit", PACO),
     }
     for kind in ("open", "half", "shut", "up", "side_l", "side_r"):
-        layers["eyes_" + kind] = eyes_layer(kind, drop)
+        layers["eyes_" + kind] = eyes_layer(kind, PACO)
     for kind in ("shut", "mid", "a", "o", "e", "m", "con"):
-        layers["mouth_" + kind] = mouth_layer(kind, drop)
+        layers["mouth_" + kind] = mouth_layer(kind, PACO)
     return layers
 
 
@@ -610,6 +681,7 @@ CAST_ORDER = {
         "pencil_write_2",
         "head",
         "hair",
+        "fringe",
         "hat_crown",
         "hat_band",
         "hat_brim",
@@ -625,8 +697,6 @@ CAST_ORDER = {
         "eyes_up",
         "eyes_side_l",
         "eyes_side_r",
-        "glasses",
-        "glasses_low",
         "brows",
         "brows_up",
         "brows_knit",
@@ -664,7 +734,6 @@ IDLE = {
         "pencil_ear",
         "mustache",
         "eyes_open",
-        "glasses",
         "brows",
         "mouth_shut",
     ],
@@ -783,11 +852,11 @@ def write_sheet(path: Path) -> None:
         ],
         "paco": [
             ("idle", IDLE["paco"]),
-            ("blink", ["body", "notebook", "head", "hair", "hat_crown", "hat_band", "hat_brim", "pencil_ear", "mustache", "eyes_shut", "glasses", "brows", "mouth_shut"]),
-            ("listen", ["body", "notebook", "line1", "line2", "pencil_write_1", "head", "hair", "hat_crown", "hat_band", "hat_brim", "mustache", "eyes_open", "glasses", "brows_up", "mouth_shut"]),
-            ("think", ["body", "notebook", "head", "hair", "hat_back", "pencil_bite", "mustache", "eyes_up", "glasses", "brows_knit", "mouth_shut"]),
-            ("speak", ["body", "notebook", "head", "hair", "hat_crown", "hat_band", "hat_brim", "pencil_ear", "mustache_open", "eyes_open", "glasses", "brows", "mouth_o"]),
-            ("action", ["body", "notebook", "mark_2", "head", "hair", "hat_crown", "hat_band", "hat_brim", "pencil_ear", "mustache", "eyes_open", "glasses", "brows", "mouth_shut"]),
+            ("blink", ["body", "notebook", "head", "hair", "hat_crown", "hat_band", "hat_brim", "pencil_ear", "mustache", "eyes_shut", "brows", "mouth_shut"]),
+            ("listen", ["body", "notebook", "line1", "line2", "pencil_write_1", "head", "hair", "hat_crown", "hat_band", "hat_brim", "mustache", "eyes_open", "brows_up", "mouth_shut"]),
+            ("think", ["body", "notebook", "head", "hair", "fringe", "hat_back", "pencil_bite", "mustache", "eyes_up", "brows_knit", "mouth_shut"]),
+            ("speak", ["body", "notebook", "head", "hair", "hat_crown", "hat_band", "hat_brim", "pencil_ear", "mustache_open", "eyes_open", "brows", "mouth_o"]),
+            ("action", ["body", "notebook", "mark_2", "head", "hair", "hat_crown", "hat_band", "hat_brim", "pencil_ear", "mustache", "eyes_open", "brows", "mouth_shut"]),
         ],
     }
     cell = GRID

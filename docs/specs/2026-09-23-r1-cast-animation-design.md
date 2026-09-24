@@ -42,7 +42,7 @@ Tito, charro majordomo: black vest, orange embroidery, moño charro, mustache, d
 - Speak: free hand ticks on comma and period.
 - `action: "task"`: one day on the calendar lights for 2 s.
 
-Paco, notes clerk: straw work hat (not a festival sombrero), red bandana, mustache, round glasses, guayabera, pencil, tooled notebook.
+Paco, notes clerk: straw work hat (not a festival sombrero), red bandana, thick drooping mustache, no glasses, guayabera, pencil, tooled notebook.
 
 - Idle: spins the pencil behind the ear.
 - Listen: writes. Notebook lines appear one by one.
@@ -57,7 +57,7 @@ Culture is costume and tools. Face proportions stay ordinary. Palette: `#111` gr
 `rabbit/cast/build.py` is the only drawing source.
 
 - Emits `cast.js` (`window.CAST`) into both creations, including `order`, `attach`, and `idle`.
-- Face layers are separate: `eyes_open`, `eyes_half`, `eyes_shut`, `eyes_up`, `eyes_side_l`, `eyes_side_r`, `glasses`, `glasses_low`, three brow poses, two mustache poses, seven mouths.
+- Face layers are separate: `eyes_open`, `eyes_half`, `eyes_shut`, `eyes_up`, `eyes_side_l`, `eyes_side_r`, three brow poses, two mustache poses, seven mouths. Tito also has `glasses` and `glasses_low`. Paco has no glasses. His mustache is a thick drooping horseshoe, and `fringe` shows only with `hat_back`. Tito's hair is a side part, not a cap.
 - Tito props: `bow`, `hand_bow`, `hand_tick`, `cal_0`, `cal_1`, `cal_2`, `cal_lit`, `glint`.
 - Paco props: `hat_crown`, `hat_band`, `hat_brim`, `hat_back`, `pencil_ear`, `pencil_touch`, `pencil_bite`, `pencil_write_0` through `pencil_write_2`, notebook lines, `mark_0` through `mark_2`.
 - Renders idle portraits to `tito.png`, `icon.png`, and `paco.png` at 512×512.

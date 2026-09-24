@@ -117,12 +117,13 @@
       var brows = "brows";
       if (mode === "listen" && framesIn >= 1) brows = "brows_up";
       if (mode === "think" && who === "paco" && framesIn >= 1) brows = "brows_knit";
-      var glasses = "glasses";
-      if (mode === "think" && who === "tito" && framesIn >= 1) glasses = "glasses_low";
       var mouthName = mode === "speak" ? mouth : "mouth_shut";
       var vowel = mouthName === "mouth_a" || mouthName === "mouth_o";
       if (mouthName === "mouth_mid" && (mouthNext === "mouth_a" || mouthNext === "mouth_o")) vowel = true;
-      var shown = ["body", "head", "hair", vowel ? "mustache_open" : "mustache", eyes, glasses, brows, mouthName];
+      var shown = ["body", "head", "hair", vowel ? "mustache_open" : "mustache", eyes, brows, mouthName];
+      if (layers.glasses) {
+        shown.push(mode === "think" && framesIn >= 1 && layers.glasses_low ? "glasses_low" : "glasses");
+      }
       var extra = {};
       if (who === "tito") {
         var page = "cal_0";
@@ -134,12 +135,13 @@
         if (mode === "speak" && ",.!?".indexOf(last) >= 0) shown.push("hand_tick");
         if (mode === "listen" && framesIn >= 1) {
           shown.push("glint");
-          extra.glint = { ox: (Math.floor(now / 160) % 3) * 3, oy: 0 };
+          extra.glint = { ox: (Math.floor(now / 160) % 3) * 2, oy: 0 };
         }
       } else {
         shown.push("notebook");
         if (mode === "think" && framesIn >= 1) {
           shown.push("hat_back", "pencil_bite");
+          if (layers.fringe) shown.push("fringe");
         } else {
           shown.push("hat_crown", "hat_band", "hat_brim");
           if (mode === "listen") {
