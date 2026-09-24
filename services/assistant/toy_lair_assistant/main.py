@@ -28,6 +28,7 @@ from toy_lair_assistant.paths import creation_dir, paco_dir
 from toy_lair_assistant.settings import Settings
 from toy_lair_assistant.ticker import run_periodic
 from toy_lair_assistant.zayka_sync import attach_zayka
+from toy_lair_assistant.zayka_token import alert_if_expired
 
 LOG = logging.getLogger("toy_lair_assistant")
 
@@ -95,10 +96,24 @@ def create_app(
             deps.settings.zayka_should_sync()
             and deps.settings.zayka_sync_interval_seconds > 0
         ):
+            def _zayka_maintenance() -> None:
+                attach_zayka(deps)
+                if deps.store is None:
+                    return
+                import httpx
+
+                alert_if_expired(
+                    deps.settings,
+                    deps.store,
+                    deps.notify,
+                    deps.clock.now,
+                    lambda url, headers: httpx.get(url, headers=headers, timeout=10),
+                )
+
             tasks.append(
                 asyncio.create_task(
                     run_periodic(
-                        lambda: attach_zayka(deps),
+                        _zayka_maintenance,
                         deps.settings.zayka_sync_interval_seconds,
                     )
                 )

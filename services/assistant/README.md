@@ -41,7 +41,7 @@ GitHub Pages is optional, if you want a non-herokuapp.com origin. The `pages` wo
 
 `/api/pair/start` and `/api/pair/claim` are unauthenticated. `/api/pair/approve` requires `X-Assistant-Token`. Live pairing sessions expire after 10 minutes (max 20 at once).
 
-Zayka: set `ZAYKA_DIR`, `ZAYKA_SYNC_ENABLED=true`, and `ZAYKA_REPO_URL=https://<fine-grained-pat>@github.com/easypizi/zayka.git`. The vault is cloned on boot and pulled every hour. Tests skip that pull. Do not index `40 Areas/sensitive`. Paco pushes notes, so that token needs write access to `easypizi/zayka`.
+Zayka: set `ZAYKA_DIR`, `ZAYKA_SYNC_ENABLED=true`, and `ZAYKA_REPO_URL=https://<fine-grained-pat>@github.com/easypizi/zayka.git`. The vault is cloned on boot and pulled every hour. Tests skip that pull. Do not index `40 Areas/sensitive`. Paco pushes notes, so that token needs write access to `easypizi/zayka`. When the token expires, Telegram gets one message that day: `Zayka GitHub token expired. Update ZAYKA_REPO_URL.` A failed save on the r1 says the same thing.
 
 ## Google OAuth (once)
 

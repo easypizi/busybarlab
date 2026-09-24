@@ -28,8 +28,16 @@ def _agent(tmp_path: Path, llm: ScriptedLLM, fail: str = "") -> PacoAgent:
 
     def runner(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
         calls.append(list(args))
-        code = 1 if fail == "push" and args == ["git", "push"] else 0
-        return subprocess.CompletedProcess(args, code)
+        code = 0
+        stderr = ""
+        if fail == "push" and args == ["git", "push"]:
+            code = 1
+        if fail == "auth" and args[:2] == ["git", "pull"]:
+            code = 1
+            stderr = "Authentication failed for https://github.com/easypizi/zayka.git"
+        result = subprocess.CompletedProcess(args, code)
+        result.stderr = stderr
+        return result
 
     vault = PacoVault(tmp_path, ZONE)
     writer = ZaykaWrite(tmp_path, runner, ZONE)
@@ -76,6 +84,13 @@ def test_inbox_create_tool_reports_write_and_peek_is_inbox(tmp_path: Path) -> No
     assert result.peek["kind"] == "inbox"
     note = agent._inbox_create("Hire", "A thought", "other idea")
     assert note == "Wrote to Inbox: Hire"
+
+
+def test_git_auth_failure_says_to_update_the_token(tmp_path: Path) -> None:
+    agent = _agent(tmp_path, ScriptedLLM([]), fail="auth")
+    agent._user_text = "запиши"
+    note = agent._inbox_create("Hire", "A thought", "hire")
+    assert note == "GitHub token expired. Update ZAYKA_REPO_URL."
 
 
 def test_push_failure_keeps_the_draft(tmp_path: Path) -> None:

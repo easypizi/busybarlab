@@ -52,11 +52,21 @@ class WriteResult:
     message: str
 
 
+_AUTH_MARKERS = (
+    "authentication failed",
+    "invalid username or token",
+    "could not read username",
+    "terminal prompts disabled",
+    "returned error: 401",
+)
+
+
 class ZaykaWrite:
     def __init__(self, root: Path, runner: Runner, zone: ZoneInfo) -> None:
         self.root = root
         self.runner = runner
         self.zone = zone
+        self.last_error = ""
 
     def inbox_create(
         self,
@@ -72,7 +82,7 @@ class ZaykaWrite:
         if target is None:
             return WriteResult(False, "", "refused")
         if not self._pull():
-            return WriteResult(False, rel, "pull_failed")
+            return self._pull_result(rel)
         rel = _inbox_rel(self.root, local, filename_hint or title)
         target = self._target(rel)
         if target is None:
@@ -92,7 +102,7 @@ class ZaykaWrite:
         if target is None:
             return WriteResult(False, "", "refused")
         if not self._pull():
-            return WriteResult(False, rel, "pull_failed")
+            return self._pull_result(rel)
         target = self._target(rel)
         if target is None:
             return WriteResult(False, "", "refused")
@@ -120,7 +130,7 @@ class ZaykaWrite:
 
     def _publish(self, rel: str, message: str) -> WriteResult:
         if not self._run(["git", "add", "--", rel]):
-            return WriteResult(False, rel, "push_failed")
+            return self._fail(rel)
         commit = [
             "git",
             "-c",
@@ -135,13 +145,25 @@ class ZaykaWrite:
             message,
         ]
         if not self._run(commit):
-            return WriteResult(False, rel, "push_failed")
+            return self._fail(rel)
         if not self._run(["git", "push"]):
-            return WriteResult(False, rel, "push_failed")
+            return self._fail(rel)
         return WriteResult(True, rel, "wrote")
+
+    def _pull_result(self, rel: str) -> WriteResult:
+        if any(marker in self.last_error.lower() for marker in _AUTH_MARKERS):
+            return WriteResult(False, rel, "token_expired")
+        return WriteResult(False, rel, "pull_failed")
+
+    def _fail(self, rel: str) -> WriteResult:
+        if any(marker in self.last_error.lower() for marker in _AUTH_MARKERS):
+            return WriteResult(False, rel, "token_expired")
+        return WriteResult(False, rel, "push_failed")
 
     def _run(self, args: list[str]) -> bool:
         result = self.runner(args, cwd=self.root)
+        error = f"{getattr(result, 'stderr', '') or ''} {getattr(result, 'stdout', '') or ''}"
+        self.last_error = error
         return int(getattr(result, "returncode", 1)) == 0
 
 

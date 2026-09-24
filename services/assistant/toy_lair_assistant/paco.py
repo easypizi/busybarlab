@@ -305,6 +305,8 @@ class PacoAgent:
             return "Pull failed. The vault is ahead."
         if result.message == "push_failed":
             return "Push failed."
+        if result.message == "token_expired":
+            return "GitHub token expired. Update ZAYKA_REPO_URL."
         return "Refused."
 
     def _daily_append(self, text: str) -> str:
@@ -321,6 +323,8 @@ class PacoAgent:
             return "Pull failed. The vault is ahead."
         if result.message == "push_failed":
             return "Push failed."
+        if result.message == "token_expired":
+            return "GitHub token expired. Update ZAYKA_REPO_URL."
         return "Refused."
 
     def _from_draft(
