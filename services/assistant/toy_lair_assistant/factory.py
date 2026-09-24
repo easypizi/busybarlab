@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 
@@ -12,6 +13,9 @@ from toy_lair_assistant.google_alert import make_auth_alerter
 from toy_lair_assistant.clients.todoist import TodoistClient
 from toy_lair_assistant.clock import Clock
 from toy_lair_assistant.llm import EchoLLM, OpenAILLM
+from toy_lair_assistant.paco import PacoAgent
+from toy_lair_assistant.paco_vault import PacoVault
+from toy_lair_assistant.zayka_write import ZaykaWrite, git_runner
 from toy_lair_assistant.main import create_app
 from toy_lair_assistant.paths import creation_dir
 from toy_lair_assistant.scheduler import Scheduler
@@ -113,6 +117,18 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         if settings.openai_api_key
         else SilentSpeech()
     )
+    paco = None
+    paco_root = settings.zayka_path()
+    if paco_root and Path(paco_root).expanduser().exists() and settings.openai_api_key:
+        zone = ZoneInfo(settings.timezone)
+        root = Path(paco_root).expanduser()
+        paco = PacoAgent(
+            llm=llm,
+            vault=PacoVault(root, zone),
+            writer=ZaykaWrite(root, git_runner, zone),
+            now=clock.now,
+            store=store,
+        )
     app = create_app(
         settings,
         clock=clock,
@@ -123,6 +139,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         store=store,
         zayka=zayka,
         notify=notify,
+        paco=paco,
     )
     if agent and notify and todoist and calendar:
         app.state.scheduler = Scheduler(

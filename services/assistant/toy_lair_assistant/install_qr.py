@@ -55,6 +55,50 @@ def creation_page_url(base: str) -> str:
     return f"{base.rstrip('/')}{CREATION_PATH}"
 
 
+PACO_TITLE = "Paco"
+PACO_DESCRIPTION = "Zayka notes"
+PACO_PATH = "/creation/paco/v2/"
+
+
+def paco_page_url(base: str) -> str:
+    return f"{base.rstrip('/')}{PACO_PATH}"
+
+
+def paco_icon_url(base: str) -> str:
+    return f"{base.rstrip('/')}/paco.png"
+
+
+def paco_payload(url: str, icon_url: str) -> dict[str, str]:
+    return {
+        "title": PACO_TITLE,
+        "url": url,
+        "description": PACO_DESCRIPTION,
+        "iconUrl": icon_url,
+        "themeColor": CREATION_THEME,
+    }
+
+
+def paco_json(url: str, icon_url: str) -> str:
+    return json.dumps(paco_payload(url, icon_url), separators=(",", ":"))
+
+
+def paco_qr_svg(url: str, icon_url: str) -> str:
+    return segno.make(paco_json(url, icon_url), error="m").svg_inline(scale=10, border=4)
+
+
+def paco_qr_png(url: str, icon_url: str) -> bytes:
+    buffer = io.BytesIO()
+    segno.make(paco_json(url, icon_url), error="m").save(
+        buffer,
+        kind="png",
+        scale=10,
+        border=4,
+        dark="#000000",
+        light="#ffffff",
+    )
+    return buffer.getvalue()
+
+
 def creation_target_url(base: str, public: str = "") -> str:
     host = public.strip()
     if host:

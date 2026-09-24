@@ -7,6 +7,8 @@ from typing import Any
 
 from toy_lair_assistant.models import Reminder
 
+DRAFT_TTL = timedelta(hours=12)
+
 
 class MemoryStore:
     def __init__(self) -> None:
@@ -15,6 +17,7 @@ class MemoryStore:
         self.turns: list[dict[str, Any]] = []
         self.feedback: list[dict[str, Any]] = []
         self.plans: dict[str, dict[str, Any]] = {}
+        self.drafts: dict[str, dict[str, Any]] = {}
 
     def seen(self, key: str) -> bool:
         return key in self.keys
@@ -81,6 +84,19 @@ class MemoryStore:
             return None
         return row["payload"]
 
+    def save_draft(self, channel: str, payload: dict[str, Any], at: datetime) -> None:
+        self.drafts[channel] = {"payload": payload, "updated_at": at}
+
+    def get_draft(self, channel: str, now: datetime) -> dict[str, Any] | None:
+        row = self.drafts.get(channel)
+        if row is None or not _draft_fresh(row["updated_at"], now):
+            return None
+        payload = row["payload"]
+        return payload if isinstance(payload, dict) else None
+
+    def clear_draft(self, channel: str) -> None:
+        self.drafts.pop(channel, None)
+
 
 class SqliteStore:
     def __init__(self, path: str = ":memory:") -> None:
@@ -119,6 +135,13 @@ class SqliteStore:
                 id TEXT PRIMARY KEY,
                 payload TEXT,
                 created_at TEXT
+            )"""
+        )
+        self.conn.execute(
+            """CREATE TABLE IF NOT EXISTS drafts (
+                channel TEXT PRIMARY KEY,
+                payload TEXT,
+                updated_at TEXT
             )"""
         )
         self.conn.commit()
@@ -198,6 +221,27 @@ class SqliteStore:
         data = json.loads(row[0])
         return data if isinstance(data, dict) else None
 
+    def save_draft(self, channel: str, payload: dict[str, Any], at: datetime) -> None:
+        self.conn.execute(
+            "INSERT OR REPLACE INTO drafts(channel, payload, updated_at) VALUES (?, ?, ?)",
+            (channel, json.dumps(payload), at.isoformat()),
+        )
+        self.conn.commit()
+
+    def get_draft(self, channel: str, now: datetime) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT payload, updated_at FROM drafts WHERE channel = ?",
+            (channel,),
+        ).fetchone()
+        if row is None or not _draft_fresh(row[1], now):
+            return None
+        data = json.loads(row[0])
+        return data if isinstance(data, dict) else None
+
+    def clear_draft(self, channel: str) -> None:
+        self.conn.execute("DELETE FROM drafts WHERE channel = ?", (channel,))
+        self.conn.commit()
+
 
 def open_store(database_url: str) -> Any:
     if not database_url:
@@ -250,6 +294,13 @@ class PostgresStore:
                     id TEXT PRIMARY KEY,
                     payload TEXT,
                     created_at TEXT
+                )"""
+            )
+            cur.execute(
+                """CREATE TABLE IF NOT EXISTS drafts (
+                    channel TEXT PRIMARY KEY,
+                    payload TEXT,
+                    updated_at TEXT
                 )"""
             )
         self.conn.commit()
@@ -344,3 +395,41 @@ class PostgresStore:
             return None
         data = json.loads(row[0])
         return data if isinstance(data, dict) else None
+
+    def save_draft(self, channel: str, payload: dict[str, Any], at: datetime) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO drafts(channel, payload, updated_at)
+                   VALUES (%s, %s, %s)
+                   ON CONFLICT (channel) DO UPDATE SET payload = EXCLUDED.payload,
+                   updated_at = EXCLUDED.updated_at""",
+                (channel, json.dumps(payload), at.isoformat()),
+            )
+        self.conn.commit()
+
+    def get_draft(self, channel: str, now: datetime) -> dict[str, Any] | None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "SELECT payload, updated_at FROM drafts WHERE channel = %s",
+                (channel,),
+            )
+            row = cur.fetchone()
+        if row is None or not _draft_fresh(row[1], now):
+            return None
+        data = json.loads(row[0])
+        return data if isinstance(data, dict) else None
+
+    def clear_draft(self, channel: str) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute("DELETE FROM drafts WHERE channel = %s", (channel,))
+        self.conn.commit()
+
+
+def _draft_fresh(updated_at: datetime | str, now: datetime) -> bool:
+    stamp = updated_at if isinstance(updated_at, datetime) else datetime.fromisoformat(updated_at)
+    if stamp.tzinfo is None and now.tzinfo is not None:
+        stamp = stamp.replace(tzinfo=now.tzinfo)
+    current = now
+    if current.tzinfo is None and stamp.tzinfo is not None:
+        current = current.replace(tzinfo=stamp.tzinfo)
+    return current - stamp <= DRAFT_TTL

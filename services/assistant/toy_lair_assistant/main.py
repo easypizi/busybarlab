@@ -14,9 +14,17 @@ from fastapi.staticfiles import StaticFiles
 from toy_lair_assistant.agent import invoke_agent
 from toy_lair_assistant.auth import require_token
 from toy_lair_assistant.clock import Clock
-from toy_lair_assistant.install_qr import creation_target_url, qr_png, qr_svg
+from toy_lair_assistant.install_qr import (
+    creation_target_url,
+    paco_icon_url,
+    paco_page_url,
+    paco_qr_png,
+    paco_qr_svg,
+    qr_png,
+    qr_svg,
+)
 from toy_lair_assistant.pairing import Pairing, PairingFull
-from toy_lair_assistant.paths import creation_dir
+from toy_lair_assistant.paths import creation_dir, paco_dir
 from toy_lair_assistant.settings import Settings
 from toy_lair_assistant.ticker import run_periodic
 from toy_lair_assistant.zayka_sync import attach_zayka
@@ -36,6 +44,7 @@ class AppDeps:
     zayka: Any = None
     notify: Any = None
     pairing: Pairing | None = None
+    paco: Any = None
 
 
 def create_app(
@@ -50,6 +59,7 @@ def create_app(
     zayka: Any = None,
     notify: Any = None,
     pairing: Pairing | None = None,
+    paco: Any = None,
 ) -> FastAPI:
     settings = settings or Settings()
     deps = AppDeps(
@@ -63,6 +73,7 @@ def create_app(
         zayka=zayka,
         notify=notify,
         pairing=pairing or Pairing(settings.assistant_api_token),
+        paco=paco,
     )
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -183,6 +194,25 @@ def create_app(
         result = invoke_agent(deps.agent, message, channel="r1", notify=deps.notify)
         return {"reply": result.reply}
 
+    @app.post("/api/paco/text")
+    def paco_text(
+        payload: dict[str, Any],
+        x_assistant_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        _guard(x_assistant_token)
+        if deps.paco is None:
+            raise HTTPException(status_code=503, detail="paco is not configured")
+        message = str(payload.get("text") or "").strip()
+        result = deps.paco.handle_text(message)
+        return {"reply": result.reply, "peek": result.peek}
+
+    @app.get("/api/paco/inbox")
+    def paco_inbox(x_assistant_token: str | None = Header(default=None)) -> dict[str, Any]:
+        _guard(x_assistant_token)
+        if deps.paco is None:
+            raise HTTPException(status_code=503, detail="paco is not configured")
+        return deps.paco.inbox_payload()
+
     @app.post("/api/tasks/{task_id}/complete")
     def complete_task(
         task_id: str,
@@ -246,6 +276,34 @@ def create_app(
             raise HTTPException(status_code=404, detail="icon is missing")
         return FileResponse(icon, media_type="image/png")
 
+    @app.get("/paco.png")
+    def paco_icon() -> FileResponse:
+        icon = paco_dir() / "paco.png"
+        if not icon.exists():
+            raise HTTPException(status_code=404, detail="icon is missing")
+        return FileResponse(icon, media_type="image/png")
+
+    @app.get("/api/paco/creation-url")
+    def paco_creation_url(request: Request) -> dict[str, str]:
+        base = deps.settings.public_base_url.strip() or str(request.base_url)
+        return {"url": paco_page_url(base)}
+
+    @app.get("/api/paco/install-qr.svg")
+    def paco_install_qr_svg(
+        request: Request,
+        x_assistant_token: str | None = Header(default=None),
+    ) -> Response:
+        _guard(x_assistant_token)
+        base = deps.settings.public_base_url.strip() or str(request.base_url)
+        url = paco_page_url(base)
+        return Response(content=paco_qr_svg(url, paco_icon_url(base)), media_type="image/svg+xml")
+
+    @app.get("/api/paco/install-qr.png")
+    def paco_install_qr_png(request: Request) -> Response:
+        base = deps.settings.public_base_url.strip() or str(request.base_url)
+        url = paco_page_url(base)
+        return Response(content=paco_qr_png(url, paco_icon_url(base)), media_type="image/png")
+
     @app.get("/api/creation-url")
     def creation_url(request: Request) -> dict[str, str]:
         base = deps.settings.public_base_url.strip() or str(request.base_url)
@@ -282,6 +340,10 @@ def create_app(
         sent = scheduler.tick(deps.clock.now())
         return {"sent": sent}
 
+    paco_static = paco_dir()
+    if paco_static.exists():
+        app.mount("/creation/paco/v2", StaticFiles(directory=paco_static, html=True), name="paco-v2")
+        app.mount("/creation/paco", StaticFiles(directory=paco_static, html=True), name="paco")
     static = creation_dir()
     if static.exists():
         app.mount("/creation/v2", StaticFiles(directory=static, html=True), name="creation-v2")

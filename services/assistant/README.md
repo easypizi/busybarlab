@@ -33,13 +33,15 @@ Creation install (Heroku is the main path):
 
 Telegram commands are cards. `/today` and the 8:00 briefing are a day schedule. Timed tasks and events sit on the timeline. Untimed tasks get a suggested slot (`~`) or land in Anytime. Recurring rituals without a time go to Anytime. `/week` groups by day and puts recurring items under Rituals. `/plan` takes one task per line, proposes times with a 15-minute buffer, a 30-minute break after 3 hours, a 4-hour load cap, and weekday work hours 09:00–17:00 (sport and errands after 17:00). Apply writes matched Todoist tasks or creates the missing ones. `🔁 Reshuffle` and `📅 Tomorrow` rebuild the same list. Nothing is written without Apply. Agent replies about a day or week get the same card. Short replies still get 👍👎. Task reminders get Done / +1h / Tomorrow. Bot API cannot set the avatar. In @BotFather run `/setuserpic` and upload `rabbit/assistant/tito.png`.
 
+Paco is a second creation on the same app for the Zayka vault. Install it from `https://<app>/creation/paco/install.html?token=<ASSISTANT_API_TOKEN>`. The QR payload is `https://<app>/creation/paco/v2/` and the icon is `https://<app>/paco.png`. `CREATION_PUBLIC_URL` does not change that URL. Hold PTT uses the r1's own speech. `POST /api/paco/text` does not call Whisper or `gpt-4o-mini-tts`. Paco can add a fleeting note under `00 Inbox/` or append today's daily note, then `git push`. That push needs a write-capable `ZAYKA_REPO_URL`. This repo does not rotate the live deploy key.
+
 Tito never deletes Todoist tasks. Close or reschedule them. Timed tasks sync one way into a Google calendar named `Tito` (`TASK_SYNC_INTERVAL_SECONDS`, override with `GOOGLE_TASKS_CALENDAR_ID`). Free slots and `/today` read every selected calendar (`GOOGLE_READ_CALENDARS=all`). Task mirrors stay out of the catalog. Reminders use due time (`TASK_LEAD_MINUTES`), deadline (`DEADLINE_LEAD_DAYS`), and the `remind` label (`REMIND_NUDGE_HOURS`).
 
 GitHub Pages is optional, if you want a non-herokuapp.com origin. The `pages` workflow publishes `rabbit/assistant`. Then set `CREATION_PUBLIC_URL=https://easypizi.github.io/toy_lair/` and CORS allows that origin.
 
 `/api/pair/start` and `/api/pair/claim` are unauthenticated. `/api/pair/approve` requires `X-Assistant-Token`. Live pairing sessions expire after 10 minutes (max 20 at once).
 
-Zayka: set `ZAYKA_DIR`, `ZAYKA_SYNC_ENABLED=true`, and `ZAYKA_REPO_URL=https://<fine-grained-pat>@github.com/easypizi/zayka.git`. The vault is cloned on boot and pulled every hour. Tests skip that pull. Do not index `40 Areas/sensitive`.
+Zayka: set `ZAYKA_DIR`, `ZAYKA_SYNC_ENABLED=true`, and `ZAYKA_REPO_URL=https://<fine-grained-pat>@github.com/easypizi/zayka.git`. The vault is cloned on boot and pulled every hour. Tests skip that pull. Do not index `40 Areas/sensitive`. Paco pushes notes, so that token needs write access to `easypizi/zayka`.
 
 ## Google OAuth (once)
 

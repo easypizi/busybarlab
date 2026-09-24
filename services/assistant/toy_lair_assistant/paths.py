@@ -11,3 +11,15 @@ def resolve_creation_dir(here: Path) -> Path:
 
 def creation_dir() -> Path:
     return resolve_creation_dir(Path(__file__).resolve())
+
+
+def resolve_paco_dir(here: Path) -> Path:
+    if len(here.parents) > 3:
+        repo_paco = here.parents[3] / "rabbit" / "paco"
+        if (repo_paco / "index.html").exists():
+            return repo_paco
+    return here.parents[1] / "static" / "paco"
+
+
+def paco_dir() -> Path:
+    return resolve_paco_dir(Path(__file__).resolve())

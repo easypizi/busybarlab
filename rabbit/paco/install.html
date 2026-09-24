@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Install Paco on r1</title>
+  <style>
+    body { font: 16px/1.4 -apple-system, sans-serif; max-width: 520px; margin: 40px auto; }
+    header { display: flex; align-items: center; gap: 12px; }
+    header img { width: 48px; height: 48px; image-rendering: pixelated; }
+    #qr { background: #fff; padding: 24px; display: inline-block; }
+    #qr img { width: 360px; height: 360px; image-rendering: pixelated; }
+    code { word-break: break-all; }
+    #code { font-size: 24px; letter-spacing: 0.2em; width: 6em; }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="paco.png" alt="Paco" width="48" height="48">
+    <h1>Install Paco</h1>
+  </header>
+  <p>Creations → add via QR. Bright screen, hold the r1 20–30 cm away.</p>
+  <p id="qr"><img id="qr-img" alt="creation qr"></p>
+  <p>Creation URL: <code id="url"></code></p>
+  <p>After the r1 opens the creation, type the 4-digit pair code and approve.</p>
+  <p>
+    <input id="code" inputmode="numeric" maxlength="4" placeholder="4821" autocomplete="one-time-code">
+    <button id="approve" type="button">approve</button>
+  </p>
+  <p id="pair-status"></p>
+  <p id="error"></p>
+  <script>
+    var params = new URLSearchParams(location.search);
+    var token = params.get("token") || "";
+    var API = /github.io$/.test(location.hostname)
+      ? "https://toy-lair-assistant-e9003db7d945.herokuapp.com"
+      : "";
+
+    document.getElementById("qr-img").src = API + "/api/paco/install-qr.png";
+    fetch(API + "/api/paco/creation-url")
+      .then(function (res) {
+        if (!res.ok) throw new Error("creation-url " + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        document.getElementById("url").textContent = data.url;
+      })
+      .catch(function (err) {
+        document.getElementById("error").textContent = String(err.message || err);
+      });
+
+    if (!token) {
+      document.getElementById("error").textContent = "missing token";
+    }
+
+    document.getElementById("approve").addEventListener("click", function () {
+      var code = document.getElementById("code").value.trim();
+      var status = document.getElementById("pair-status");
+      if (!token) {
+        status.textContent = "missing token";
+        return;
+      }
+      if (!/^\d{4}$/.test(code)) {
+        status.textContent = "enter the 4-digit code";
+        return;
+      }
+      status.textContent = "approving";
+      fetch(API + "/api/pair/approve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Assistant-Token": token
+        },
+        body: JSON.stringify({ code: code })
+      }).then(function (res) {
+        if (res.status === 404) {
+          status.textContent = "not found or expired";
+          return;
+        }
+        if (!res.ok) throw new Error("approve " + res.status);
+        status.textContent = "ok";
+      }).catch(function (err) {
+        status.textContent = String(err.message || err);
+      });
+    });
+  </script>
+</body>
+</html>

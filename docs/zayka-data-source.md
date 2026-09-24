@@ -1,6 +1,6 @@
 # Zayka as a data source
 
-Zayka is the personal Obsidian vault (Zettelkasten + light PARA). Agents in this repo may **read** it to understand projects, areas, and standing notes. They must not write to it in v1. Capture goes to Todoist Inbox.
+Zayka is the personal Obsidian vault (Zettelkasten + light PARA). Tito may **read** it to understand projects, areas, and standing notes. Tito does not write. Paco may create a fleeting note in `00 Inbox/` and append to today's daily note, then commit and push. Everything else stays read-only. `40 Areas/sensitive/` is never indexed.
 
 ## Locations
 
@@ -11,7 +11,7 @@ Zayka is the personal Obsidian vault (Zettelkasten + light PARA). Agents in this
 | Note count (2026-09-19) | ~175 markdown files |
 | Rules in the vault | `.cursor/rules/obsidian-zayka.mdc` |
 
-Heroku does not see the local disk. The assistant dyno clones the repo with a **read-only deploy key** at boot and `git pull`s on a timer (see `toy_lair_assistant.zayka`).
+Heroku does not see the local disk. The assistant dyno clones the repo at boot and `git pull`s on a timer (see `toy_lair_assistant.zayka`). Paco's push needs a write-capable `ZAYKA_REPO_URL`. A read-only deploy key is enough for Tito's search. Do not put the token in git.
 
 ## Folder map
 
@@ -37,7 +37,7 @@ Hub: `Home.md`. Navigation is folders + MOCs, not a giant link dump.
 - `10 Evergreen/`
 - `Home.md`, `30 Projects/30 Projects.md`, `40 Areas/40 Areas.md`
 
-Useful later, not in v1 index: `00 Inbox/`, `20 Sources/`, `60 Daily/`, `100 AI-Generated/`.
+Tito does not index `00 Inbox/`, `20 Sources/`, `60 Daily/`, or `100 AI-Generated/`. Paco also reads `00 Inbox/` and `60 Daily/`.
 
 ## Never index or send to the model
 
@@ -69,9 +69,13 @@ Workflow tags only: `#draft` `#review` `#evergreen` `#idea` `#to-process` `#wait
 
 Notes mix Russian and English. Technical terms stay English. Do not mix languages inside one sentence when writing new notes (vault rule). The assistant may answer the user in the language of the request.
 
-## Agent tools (v1)
+## Agent tools
+
+Tito:
 
 - `zayka_search(query)` → titles, paths, short snippets
 - `zayka_read(path)` → note body if the path is allowed
 
-No create/update/delete. No commit/push to `easypizi/zayka`.
+Tito does not create, update, delete, commit, or push.
+
+Paco adds `zayka_list_inbox`, `zayka_inbox_create`, and `zayka_daily_append`. Writes are only a new `00 Inbox/YYYY-MM-DD-*.md` file or an append to `60 Daily/YYYY/MM/YYYY-MM-DD.md`. Paco does not edit or delete notes, and it does not write `60 Daily/Дневник/`.

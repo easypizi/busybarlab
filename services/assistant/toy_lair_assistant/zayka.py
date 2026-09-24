@@ -27,8 +27,9 @@ class ZaykaHit:
 
 
 class ZaykaIndex:
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, prefixes: tuple[str, ...] | None = None) -> None:
         self.root = root
+        self.prefixes = ALLOWED_PREFIXES if prefixes is None else prefixes
 
     def search(self, query: str) -> list[ZaykaHit]:
         needle = query.lower().strip()
@@ -65,7 +66,8 @@ class ZaykaIndex:
             return False
         if norm == "Home.md":
             return True
-        return any(norm == prefix or norm.startswith(prefix + "/") for prefix in ALLOWED_PREFIXES)
+        prefixes = getattr(self, "prefixes", ALLOWED_PREFIXES)
+        return any(norm == prefix or norm.startswith(prefix + "/") for prefix in prefixes)
 
     def _iter_notes(self) -> list[Path]:
         notes: list[Path] = []

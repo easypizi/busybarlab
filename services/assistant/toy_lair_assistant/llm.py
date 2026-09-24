@@ -252,8 +252,14 @@ class OpenAILLM:
         self.model = model
         self.http = http or httpx.Client(timeout=60)
 
-    def complete(self, messages: list[dict[str, Any]], tools: list[str]) -> AgentResult:
-        selected = [schema for schema in TOOL_SCHEMAS if schema["function"]["name"] in tools]
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[str],
+        schemas: list[dict[str, Any]] | None = None,
+    ) -> AgentResult:
+        catalog = TOOL_SCHEMAS if schemas is None else schemas
+        selected = [schema for schema in catalog if schema["function"]["name"] in tools]
         body: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
@@ -283,6 +289,11 @@ class OpenAILLM:
 
 
 class EchoLLM:
-    def complete(self, messages: list[dict[str, Any]], tools: list[str]) -> AgentResult:
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[str],
+        schemas: list[dict[str, Any]] | None = None,
+    ) -> AgentResult:
         user = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
         return AgentResult(reply=str(user), tool_calls=[])

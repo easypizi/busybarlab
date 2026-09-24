@@ -42,7 +42,7 @@ Not allowed / unreliable:
 - `getUserMedia` in this WebView (hangs, no prompt, no error)
 - inline `onclick` on dynamically injected HTML
 - `touchstart` + `preventDefault` on `document.body` (breaks the on-screen keyboard)
-- more than one creation at a time
+- more than one creation open at a time (Tito and Paco can both be installed, the WebView runs one)
 - intern-generated creations cannot host a backend (our creation is self-hosted)
 
 Install: host the site, open `install.html`, scan the QR from Creations → add via QR.
@@ -58,6 +58,7 @@ Install: host the site, open `install.html`, scan the QR from Creations → add 
 
 ## Repo map
 
-- UI: `rabbit/assistant/`
+- Tito UI: `rabbit/assistant/`
+- Paco UI: `rabbit/paco/`
 - Backend: `services/assistant/`
-- Design: `docs/specs/2026-09-19-r1-assistant-phase0-design.md`
+- Design: `docs/specs/2026-09-19-r1-assistant-phase0-design.md`, `docs/specs/2026-09-22-paco-zayka-design.md`

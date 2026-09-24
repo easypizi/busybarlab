@@ -42,3 +42,16 @@ def test_memory_and_sqlite_save_plan(tmp_path) -> None:
     sqlite.save_plan("abcd1234", payload, now)
     assert sqlite.get_plan("abcd1234") == payload
     assert sqlite.get_plan("missing") is None
+
+
+def test_draft_roundtrip_and_twelve_hour_expiry(tmp_path) -> None:
+    now = datetime(2026, 9, 22, 15, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+    payload = {"title": "Hire", "body": "first", "filename_hint": "", "related": []}
+    for store in (MemoryStore(), SqliteStore(str(tmp_path / "drafts.db"))):
+        assert store.get_draft("r1-paco", now) is None
+        store.save_draft("r1-paco", payload, now)
+        assert store.get_draft("r1-paco", now + timedelta(hours=12)) == payload
+        assert store.get_draft("r1-paco", now + timedelta(hours=12, seconds=1)) is None
+        store.save_draft("r1-paco", payload, now)
+        store.clear_draft("r1-paco")
+        assert store.get_draft("r1-paco", now) is None
