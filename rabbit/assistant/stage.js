@@ -21,42 +21,40 @@
     return base;
   }
 
-  function createStage(canvas, dialog, who) {
+  function createStage(canvas, dialog, who, options) {
+    options = options || {};
+    var clock = options.clock || function () { return performance.now(); };
     var ctx = canvas.getContext("2d");
     ctx.imageSmoothingEnabled = false;
     var cast = window.CAST;
     var layers = cast[who];
     var order = cast.order[who];
+    var attach = cast.attach[who];
     var pal = cast.palette;
     var scale = cast.scale;
     var mode = "idle";
-    var since = 0;
-    var blinkAt = 800;
-    var blinkFor = 0;
-    var doubleBlink = false;
+    var modeAt = clock();
     var typed = "";
     var full = "";
     var typeAt = 0;
     var mouth = "mouth_shut";
+    var mouthNext = "mouth_shut";
+    var mouthBlend = 0;
     var action = "";
     var actionUntil = 0;
-    var linesShown = 3;
+    var markStart = 0;
+    var markUntil = 0;
+    var nodUntil = 0;
     var holdUntil = 0;
     var pinned = true;
+    var blinkLock = "";
     var sprites = {};
-    var last = 0;
-    var acc = 0;
-    var nod = 0;
+    var last = clock();
 
     function setDialog(text, kind) {
       dialog.className = kind || "";
       dialog.textContent = text;
       if (pinned) dialog.scrollTop = dialog.scrollHeight;
-    }
-
-    function scheduleBlink(now) {
-      blinkAt = now + 2000 + Math.random() * 4000;
-      doubleBlink = Math.random() < 0.25;
     }
 
     function bake(name) {
@@ -83,142 +81,182 @@
       ctx.drawImage(sheet, ox * scale, oy * scale);
     }
 
-    function draw(now) {
-      var breath = now % 3800 > 1900 ? -1 : 0;
-      var bobNames = {
-        head: 1,
-        hair: 1,
-        mustache: 1,
-        eyes: 1,
-        eyes_shut: 1,
-        brows: 1,
-        mouth_shut: 1,
-        mouth_a: 1,
-        mouth_o: 1,
-        mouth_e: 1,
-        mouth_m: 1,
-        mouth_con: 1,
-        bow: 1,
-        hat: 1,
-        pencil: 1,
-      };
-      var lean = mode === "listen" ? 1 : 0;
-      var browLift = mode === "listen" && who === "tito" ? -1 : 0;
-      var glasses = 0;
-      var hatShift = 0;
-      if (mode === "think" && who === "paco") hatShift = -2;
-      var showBite = mode === "think" && who === "paco";
-      var showHand = false;
-      if (who === "tito" && mode === "idle" && now % 7000 < 800) showHand = true;
-      if (who === "tito" && mode === "speak" && /[,.]/.test(typed.slice(-1))) showHand = true;
-      var page = mode === "think" && who === "tito" && Math.floor(now / 180) % 2 === 0;
-      if (mode === "listen") nod = Math.floor(now / 700) % 2;
-      else nod = 0;
-      var blink = blinkFor > 0;
-      var gaze = Math.floor(now / 2500) % 5;
-      var gazeX = gaze === 1 ? -1 : gaze === 2 ? 1 : 0;
+    function blinkShape(now) {
+      if (blinkLock) return blinkLock;
+      var period = 3000;
+      var into = (now + 2200) % period;
+      if (into < FRAME) return "eyes_half";
+      if (into < 2 * FRAME) return "eyes_shut";
+      if (into < 3 * FRAME) return "eyes_half";
+      if (Math.floor(now / period) % 4 === 0) {
+        var gap = 3 * FRAME + 180;
+        if (into >= gap && into < gap + FRAME) return "eyes_half";
+        if (into >= gap + FRAME && into < gap + 2 * FRAME) return "eyes_shut";
+        if (into >= gap + 2 * FRAME && into < gap + 3 * FRAME) return "eyes_half";
+      }
+      return "";
+    }
 
+    function gazeShape(now) {
+      var slot = Math.floor(now / 5000) % 6;
+      if (slot === 1) return "eyes_side_l";
+      if (slot === 2) return "eyes_side_r";
+      return "eyes_open";
+    }
+
+    function poseAt(now) {
+      var framesIn = Math.max(0, Math.floor((now - modeAt) / FRAME));
+      var breath = Math.floor(now / 3800) % 2 === 1 ? -1 : 0;
+      var lean = mode === "listen" && framesIn >= 1 ? 1 : 0;
+      var nod = 0;
+      if (mode === "listen" && framesIn >= 2) nod = Math.floor(now / 700) % 2;
+      if (mode === "speak" && who === "paco" && now < nodUntil) nod = 1;
+      var headOy = breath + lean + nod;
+      var blinked = blinkShape(now);
+      var eyes = blinked || (mode === "think" && framesIn >= 1 ? "eyes_up" : gazeShape(now));
+      var brows = "brows";
+      if (mode === "listen" && framesIn >= 1) brows = "brows_up";
+      if (mode === "think" && who === "paco" && framesIn >= 1) brows = "brows_knit";
+      var glasses = "glasses";
+      if (mode === "think" && who === "tito" && framesIn >= 1) glasses = "glasses_low";
+      var mouthName = mode === "speak" ? mouth : "mouth_shut";
+      var vowel = mouthName === "mouth_a" || mouthName === "mouth_o";
+      if (mouthName === "mouth_mid" && (mouthNext === "mouth_a" || mouthNext === "mouth_o")) vowel = true;
+      var shown = ["body", "head", "hair", vowel ? "mustache_open" : "mustache", eyes, glasses, brows, mouthName];
+      var extra = {};
+      if (who === "tito") {
+        var page = "cal_0";
+        if (action && now < actionUntil) page = "cal_lit";
+        else if (mode === "think") page = "cal_" + (Math.floor(Math.max(0, now - modeAt) / 600) % 3);
+        shown.push(page, "bow");
+        if (mode === "idle" && now % 8000 < 3 * FRAME) shown.push("hand_bow");
+        var last = typed.slice(-1);
+        if (mode === "speak" && ",.!?".indexOf(last) >= 0) shown.push("hand_tick");
+        if (mode === "listen" && framesIn >= 1) {
+          shown.push("glint");
+          extra.glint = { ox: (Math.floor(now / 160) % 3) * 3, oy: 0 };
+        }
+      } else {
+        shown.push("notebook");
+        if (mode === "think" && framesIn >= 1) {
+          shown.push("hat_back", "pencil_bite");
+        } else {
+          shown.push("hat_crown", "hat_band", "hat_brim");
+          if (mode === "listen") {
+            shown.push("pencil_write_" + (Math.floor(now / 180) % 3));
+            var lines = Math.min(3, Math.floor(Math.max(0, now - modeAt) / 700));
+            if (lines >= 1) shown.push("line1");
+            if (lines >= 2) shown.push("line2");
+            if (lines >= 3) shown.push("line3");
+          } else if (mode === "idle" && now % 9000 < 2 * FRAME) shown.push("pencil_touch");
+          else shown.push("pencil_ear");
+        }
+        if (now < markUntil) {
+          var age = now - markStart;
+          var step = age < 140 ? 0 : age < 280 ? 1 : 2;
+          shown.push("mark_" + step);
+        }
+      }
+      var dots = 0;
+      if (who === "paco" && mode === "think") {
+        dots = framesIn < 2 ? framesIn + 1 : (Math.floor(now / 200) % 3) + 1;
+      }
+      return { layers: shown, headOy: headOy, extra: extra, dots: dots };
+    }
+
+    function draw(now) {
+      var pose = poseAt(now);
+      var show = {};
+      var i;
+      for (i = 0; i < pose.layers.length; i += 1) show[pose.layers[i]] = 1;
       ctx.fillStyle = "#111111";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       var n;
       for (n = 0; n < order.length; n += 1) {
         var name = order[n];
-        if (name === "mouth") name = mouth;
-        if (name === "eyes" && blink) {
-          name = blinkFor === 2 ? "eyes_shut" : "eyes_half";
-          if (!layers[name]) name = "eyes_shut";
-        }
-        if (name === "eyes" && mode === "think" && who === "tito" && layers.glasses_low) {
-          name = "glasses_low";
-        }
-        if (name === "hat" && mode === "think" && who === "paco" && layers.hat_back) {
-          name = "hat_back";
-        }
-        if (name === "hand" && !showHand) continue;
-        if (name === "mark" && now > actionUntil) continue;
-        if (name === "line1" || name === "line2" || name === "line3") {
-          var need = name === "line1" ? 1 : name === "line2" ? 2 : 3;
-          if (mode === "listen" && linesShown < need) continue;
-        }
-        if (name === "pencil" && showBite) name = "pencil_bite";
+        if (!show[name]) continue;
         var ox = 0;
-        var oy = 0;
-        if (bobNames[name]) {
-          oy += breath + lean + nod;
-        }
-        if (name === "brows") oy += browLift;
-        if (name === "eyes" || name === "eyes_shut" || name === "eyes_half" || name === "glasses_low") {
-          oy += glasses;
-          ox += gazeX;
-        }
-        if (name === "hat") {
-          oy += hatShift;
-          ox += hatShift ? 2 : 0;
-        }
-        if (name === "bow" && showHand) ox += now % 400 < 200 ? -1 : 1;
-        if (name === "prop" && who === "tito" && mode === "idle" && now % 9000 < 500) oy -= 1;
-        if (name === "prop" && page) ox += 1;
-        if (name === "pencil" && mode === "idle" && who === "paco") {
-          ox += Math.floor(now / 200) % 3 - 1;
+        var oy = attach[name] === "head" ? pose.headOy : 0;
+        var bump = pose.extra[name];
+        if (bump) {
+          ox += bump.ox || 0;
+          oy += bump.oy || 0;
         }
         blit(name, ox, oy);
       }
-      if (mode === "think" && who === "paco") {
+      if (pose.dots) {
         ctx.fillStyle = "#fe5000";
-        var dots = (Math.floor(now / 200) % 3) + 1;
         var d;
-        for (d = 0; d < dots; d += 1) {
-          ctx.fillRect((40 + d * 4) * scale, 6 * scale, scale, scale);
+        for (d = 0; d < pose.dots; d += 1) {
+          ctx.fillRect((72 + d * 5) * scale, (40 + pose.headOy) * scale, scale, scale);
         }
       }
     }
 
-    function frame(now) {
-      if (!last) last = now;
-      acc += now - last;
-      last = now;
-      if (acc >= FRAME) {
-        acc = 0;
-        if (blinkFor > 0) blinkFor -= 1;
-        else if (now >= blinkAt) {
-          blinkFor = 3;
-          blinkAt = now + (doubleBlink ? 180 : 0);
-          if (!doubleBlink) scheduleBlink(now);
-          else doubleBlink = false;
-        }
-        if (mode === "speak" && typed.length < full.length && now >= typeAt) {
-          typed += full.charAt(typed.length);
-          mouth = mouthFor(typed.charAt(typed.length - 1));
-          typeAt = now + delayFor(typed.charAt(typed.length - 1));
-          setDialog(typed, "speak");
-          if (who === "paco" && /[.!?]/.test(typed.slice(-1))) actionUntil = now + 400;
-          if (typed.length === full.length) holdUntil = now + 4000;
-        } else if (mode === "speak" && holdUntil && now >= holdUntil) {
-          holdUntil = 0;
-          setMode("idle");
-        }
-        if (mode === "listen" && who === "paco") {
-          linesShown = Math.min(3, Math.floor((now - since) / 700));
-        }
-        draw(now);
+    function tick(now) {
+      if (mode === "speak" && mouthBlend > 0) {
+        mouthBlend -= 1;
+        if (mouthBlend === 0) mouth = mouthNext;
       }
-      requestAnimationFrame(frame);
+      if (mode === "speak" && typed.length < full.length && now >= typeAt && mouthBlend === 0) {
+        var ch = full.charAt(typed.length);
+        typed += ch;
+        var next = mouthFor(ch);
+        if (next !== mouth) {
+          mouthNext = next;
+          mouth = "mouth_mid";
+          mouthBlend = 1;
+          typeAt = now + FRAME + delayFor(ch);
+        } else {
+          mouth = next;
+          typeAt = now + delayFor(ch);
+        }
+        setDialog(typed, "speak");
+        if (who === "paco" && /[.!?]/.test(ch)) {
+          nodUntil = now + 4 * FRAME;
+          if (!(action && now < actionUntil)) {
+            markStart = now;
+            markUntil = now + 420;
+          }
+        }
+        if (typed.length === full.length) holdUntil = now + 4000;
+      } else if (mode === "speak" && holdUntil && typed.length === full.length && now >= holdUntil) {
+        holdUntil = 0;
+        setMode("idle");
+      }
     }
 
     function setMode(next) {
       mode = next;
-      since = performance.now();
-      if (next !== "speak") mouth = "mouth_shut";
+      modeAt = clock();
+      if (next !== "speak") {
+        mouth = "mouth_shut";
+        mouthBlend = 0;
+      }
       if (next === "think") setDialog("...", "think");
       if (next === "listen") {
-        linesShown = 0;
         holdUntil = 0;
         setDialog("", "user");
       }
     }
 
+    function frame() {
+      var now = clock();
+      var dt = now - last;
+      if (dt >= FRAME) {
+        var steps = Math.min(30, Math.floor(dt / FRAME));
+        var s;
+        for (s = 0; s < steps; s += 1) {
+          last += FRAME;
+          tick(last);
+        }
+      }
+      draw(clock());
+      requestAnimationFrame(frame);
+    }
+
     requestAnimationFrame(frame);
-    scheduleBlink(performance.now());
+    draw(clock());
 
     return {
       setMode: setMode,
@@ -230,21 +268,37 @@
         typed = "";
         holdUntil = 0;
         pinned = true;
-        typeAt = performance.now();
-        action = nextAction || "";
-        if (action) actionUntil = performance.now() + 2000;
-        setMode("speak");
         mouth = "mouth_shut";
+        mouthNext = "mouth_shut";
+        mouthBlend = 0;
+        typeAt = clock();
+        action = nextAction || "";
+        var now = clock();
+        if (action) {
+          markStart = now;
+          markUntil = now + 2000;
+          actionUntil = now + 2000;
+        } else {
+          actionUntil = 0;
+          markUntil = 0;
+        }
+        setMode("speak");
       },
       fail: function (text) {
         full = "";
         typed = "";
+        action = "";
+        actionUntil = 0;
+        markUntil = 0;
         setMode("idle");
         setDialog(text || "", "speak");
       },
       scroll: function (delta) {
         pinned = false;
         dialog.scrollTop += delta;
+      },
+      lockBlink: function (name) {
+        blinkLock = name || "";
       },
     };
   }

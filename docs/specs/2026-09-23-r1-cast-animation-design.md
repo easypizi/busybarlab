@@ -2,7 +2,7 @@
 
 Date: 2026-09-23
 
-Tito and Paco replace the record circle with a living pixel character. The same layers draw the 512 icon and the 128 screen bust.
+Tito and Paco replace the record circle with a living pixel character. The same layers draw the 512 icon and the 192 screen bust. The grid is 96, drawn at that size. Nothing is scaled up from 64.
 
 ## States
 
@@ -15,10 +15,11 @@ Tito and Paco replace the record circle with a living pixel character. The same 
 
 Shared motion, 12 fps, canvas smoothing off:
 
-- Breath lifts the head 1 px for half of a 3.8 s cycle.
-- Blink every 2–6 s in three frames (half, shut, half), sometimes twice.
+- Breath lifts every `head` layer 1 px for half of a 3.8 s cycle. `cast.attach` says which layers ride with the head. The body stays put.
+- Blink every 3 s in three frames (half, shut, half). Every fourth blink is a double. Blink swaps only the eye layer. Glasses stay on.
+- Think, listen, and speak each spend two frames arriving, then hold the pose.
 - Each layer is baked once into an offscreen canvas and composited with `drawImage`.
-- Mouth follows the character being typed. `A/А` open, `O/О/U/У` round, `E/И/I` wide, `M/М/B/Б/P/П` closed lips, other consonants half, space shut.
+- Mouth follows the character being typed. `A/А` open, `O/О/U/У` round, `E/И/I` wide, `M/М/B/Б/P/П` closed lips, other consonants half, space shut. A change of shape shows `mouth_mid` for one frame. Vowels lift `mustache_open`.
 - Type rate is one constant: 14 Cyrillic characters per second, 16 Latin. Comma adds 250 ms. Period, `!`, and `?` add 450 ms.
 
 ## Screen (240x282)
@@ -37,7 +38,7 @@ Tito, charro majordomo: black vest, orange embroidery, moño charro, mustache, d
 
 - Idle: fixes the bow, glances at the calendar.
 - Listen: leans in 1 px, brow up, slow nod, lens glint.
-- Think: glasses slide to the nose tip, calendar pages flip.
+- Think: `glasses_low` sits under the eyes, `eyes_up` looks over the frame, calendar plays `cal_0`, `cal_1`, `cal_2`.
 - Speak: free hand ticks on comma and period.
 - `action: "task"`: one day on the calendar lights for 2 s.
 
@@ -45,7 +46,7 @@ Paco, notes clerk: straw work hat (not a festival sombrero), red bandana, mustac
 
 - Idle: spins the pencil behind the ear.
 - Listen: writes. Notebook lines appear one by one.
-- Think: bites the pencil, hat slides back, three dots above the hat.
+- Think: `hat_back` opens the forehead, `pencil_bite` at the mouth, `brows_knit`, `eyes_up`, three dots to the right of the head.
 - Speak: holds the notebook, marks a tick on each period.
 - `action: "saved"`: a check appears in the notebook for 2 s.
 
@@ -55,12 +56,16 @@ Culture is costume and tools. Face proportions stay ordinary. Palette: `#111` gr
 
 `rabbit/cast/build.py` is the only drawing source.
 
-- Emits `cast.js` (`window.CAST`) into both creations.
+- Emits `cast.js` (`window.CAST`) into both creations, including `order`, `attach`, and `idle`.
+- Face layers are separate: `eyes_open`, `eyes_half`, `eyes_shut`, `eyes_up`, `eyes_side_l`, `eyes_side_r`, `glasses`, `glasses_low`, three brow poses, two mustache poses, seven mouths.
+- Tito props: `bow`, `hand_bow`, `hand_tick`, `cal_0`, `cal_1`, `cal_2`, `cal_lit`, `glint`.
+- Paco props: `hat_crown`, `hat_band`, `hat_brim`, `hat_back`, `pencil_ear`, `pencil_touch`, `pencil_bite`, `pencil_write_0` through `pencil_write_2`, notebook lines, `mark_0` through `mark_2`.
 - Renders idle portraits to `tito.png`, `icon.png`, and `paco.png` at 512×512.
 - Copies `rabbit/cast/stage.js` so both creations carry the same bytes.
 - Mirrors `rabbit/assistant` and `rabbit/paco` into `services/assistant/static/`.
+- `rabbit/cast/preview.html` is a local frame sheet. `?freeze=<ms>` holds the clock. It is not copied to the dyno.
 
-`stage.js` reads `CAST[who]`, composites layers, and owns the typewriter.
+`stage.js` reads `CAST[who]`, composites layers, and owns the typewriter. `createStage(canvas, dialog, who, { clock })` takes an optional clock. The creations omit it and use `performance.now`.
 
 ## API
 
