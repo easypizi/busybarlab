@@ -13,6 +13,7 @@ from toy_lair_assistant.google_alert import make_auth_alerter
 from toy_lair_assistant.clients.todoist import TodoistClient
 from toy_lair_assistant.clock import Clock
 from toy_lair_assistant.llm import EchoLLM, OpenAILLM
+from toy_lair_assistant.carlos import CarlosAgent
 from toy_lair_assistant.paco import PacoAgent
 from toy_lair_assistant.paco_vault import PacoVault
 from toy_lair_assistant.zayka_write import ZaykaWrite, git_runner
@@ -130,6 +131,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             store=store,
             notify=notify.voice("paco") if notify else None,
         )
+    carlos = CarlosAgent(llm=llm, store=store) if settings.openai_api_key else None
     app = create_app(
         settings,
         clock=clock,
@@ -141,6 +143,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         zayka=zayka,
         notify=notify,
         paco=paco,
+        carlos=carlos,
     )
     if agent and notify and todoist and calendar:
         app.state.scheduler = Scheduler(

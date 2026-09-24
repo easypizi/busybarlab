@@ -50,6 +50,7 @@
     var blinkLock = "";
     var sprites = {};
     var last = clock();
+    var onIdle = options.onIdle || function () {};
 
     function setDialog(text, kind) {
       dialog.className = kind || "";
@@ -116,11 +117,12 @@
       var eyes = blinked || (mode === "think" && framesIn >= 1 ? "eyes_up" : gazeShape(now));
       var brows = "brows";
       if (mode === "listen" && framesIn >= 1) brows = "brows_up";
-      if (mode === "think" && who === "paco" && framesIn >= 1) brows = "brows_knit";
+      if (mode === "think" && framesIn >= 1 && (who === "paco" || who === "carlos")) brows = "brows_knit";
       var mouthName = mode === "speak" ? mouth : "mouth_shut";
       var vowel = mouthName === "mouth_a" || mouthName === "mouth_o";
       if (mouthName === "mouth_mid" && (mouthNext === "mouth_a" || mouthNext === "mouth_o")) vowel = true;
-      var shown = ["body", "head", "hair", vowel ? "mustache_open" : "mustache", eyes, brows, mouthName];
+      var shown = ["body", "head", "hair", eyes, brows, mouthName];
+      if (layers.mustache) shown.push(vowel ? "mustache_open" : "mustache");
       if (layers.glasses) {
         shown.push(mode === "think" && framesIn >= 1 && layers.glasses_low ? "glasses_low" : "glasses");
       }
@@ -137,7 +139,7 @@
           shown.push("glint");
           extra.glint = { ox: (Math.floor(now / 160) % 3) * 2, oy: 0 };
         }
-      } else {
+      } else if (who === "paco") {
         shown.push("notebook");
         if (mode === "think" && framesIn >= 1) {
           shown.push("hat_back", "pencil_bite");
@@ -158,6 +160,15 @@
           var step = age < 140 ? 0 : age < 280 ? 1 : 2;
           shown.push("mark_" + step);
         }
+      } else {
+        shown.push("watch_cord");
+        var face = "watch_0";
+        if (action && now < actionUntil) face = "watch_lit";
+        else if (mode === "think") face = "watch_" + (Math.floor(Math.max(0, now - modeAt) / 600) % 3);
+        shown.push(face);
+        if (layers.goatee) shown.push(vowel ? "goatee_open" : "goatee");
+        if (mode === "think" && framesIn >= 1) shown.push("cap_back");
+        else shown.push("cap_crown", "cap_band", "cap_brim");
       }
       var dots = 0;
       if (who === "paco" && mode === "think") {
@@ -225,6 +236,7 @@
       } else if (mode === "speak" && holdUntil && typed.length === full.length && now >= holdUntil) {
         holdUntil = 0;
         setMode("idle");
+        onIdle();
       }
     }
 

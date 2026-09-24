@@ -39,7 +39,7 @@
     }
 
     var labels = ["idle", "listen", "think", "speak", "action", "blink"];
-    var people = ["tito", "paco"];
+    var people = ["tito", "paco", "carlos"];
     var table = document.getElementById("grid");
     var head = document.createElement("tr");
     head.appendChild(document.createElement("td"));
@@ -69,7 +69,7 @@
         if (label === "listen") stage.setMode("listen");
         if (label === "think") stage.setMode("think");
         if (label === "speak") stage.speak(who === "tito" ? "Hola, amigo." : "Ya está, listo.");
-        if (label === "action") stage.speak("Listo.", who === "tito" ? "task" : "saved");
+        if (label === "action") stage.speak("Listo.", who === "tito" ? "task" : who === "paco" ? "saved" : "logged");
         if (label === "blink") stage.lockBlink("eyes_shut");
       });
       table.appendChild(row);

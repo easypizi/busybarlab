@@ -18,6 +18,7 @@ class MemoryStore:
         self.feedback: list[dict[str, Any]] = []
         self.plans: dict[str, dict[str, Any]] = {}
         self.drafts: dict[str, dict[str, Any]] = {}
+        self.workout_logs: list[dict[str, Any]] = []
 
     def seen(self, key: str) -> bool:
         return key in self.keys
@@ -97,6 +98,26 @@ class MemoryStore:
     def clear_draft(self, channel: str) -> None:
         self.drafts.pop(channel, None)
 
+    def append_workout_log(self, log_date: str, payload: dict[str, Any], at: datetime) -> None:
+        self.workout_logs.append({"log_date": log_date, "payload": payload, "at": at})
+
+    def last_workout_log(self, log_date: str) -> dict[str, Any] | None:
+        for row in reversed(self.workout_logs):
+            if row["log_date"] == log_date:
+                payload = row["payload"]
+                return payload if isinstance(payload, dict) else None
+        return None
+
+    def replace_last_workout_log(
+        self, log_date: str, payload: dict[str, Any], at: datetime
+    ) -> bool:
+        for row in reversed(self.workout_logs):
+            if row["log_date"] == log_date:
+                row["payload"] = payload
+                row["at"] = at
+                return True
+        return False
+
 
 class SqliteStore:
     def __init__(self, path: str = ":memory:") -> None:
@@ -142,6 +163,14 @@ class SqliteStore:
                 channel TEXT PRIMARY KEY,
                 payload TEXT,
                 updated_at TEXT
+            )"""
+        )
+        self.conn.execute(
+            """CREATE TABLE IF NOT EXISTS workout_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                log_date TEXT,
+                payload TEXT,
+                created_at TEXT
             )"""
         )
         self.conn.commit()
@@ -242,6 +271,39 @@ class SqliteStore:
         self.conn.execute("DELETE FROM drafts WHERE channel = ?", (channel,))
         self.conn.commit()
 
+    def append_workout_log(self, log_date: str, payload: dict[str, Any], at: datetime) -> None:
+        self.conn.execute(
+            "INSERT INTO workout_logs(log_date, payload, created_at) VALUES (?, ?, ?)",
+            (log_date, json.dumps(payload), at.isoformat()),
+        )
+        self.conn.commit()
+
+    def last_workout_log(self, log_date: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT payload FROM workout_logs WHERE log_date = ? ORDER BY id DESC LIMIT 1",
+            (log_date,),
+        ).fetchone()
+        if row is None:
+            return None
+        data = json.loads(row[0])
+        return data if isinstance(data, dict) else None
+
+    def replace_last_workout_log(
+        self, log_date: str, payload: dict[str, Any], at: datetime
+    ) -> bool:
+        row = self.conn.execute(
+            "SELECT id FROM workout_logs WHERE log_date = ? ORDER BY id DESC LIMIT 1",
+            (log_date,),
+        ).fetchone()
+        if row is None:
+            return False
+        self.conn.execute(
+            "UPDATE workout_logs SET payload = ?, created_at = ? WHERE id = ?",
+            (json.dumps(payload), at.isoformat(), row[0]),
+        )
+        self.conn.commit()
+        return True
+
 
 def open_store(database_url: str) -> Any:
     if not database_url:
@@ -301,6 +363,14 @@ class PostgresStore:
                     channel TEXT PRIMARY KEY,
                     payload TEXT,
                     updated_at TEXT
+                )"""
+            )
+            cur.execute(
+                """CREATE TABLE IF NOT EXISTS workout_logs (
+                    id SERIAL PRIMARY KEY,
+                    log_date TEXT,
+                    payload TEXT,
+                    created_at TEXT
                 )"""
             )
         self.conn.commit()
@@ -423,6 +493,46 @@ class PostgresStore:
         with self.conn.cursor() as cur:
             cur.execute("DELETE FROM drafts WHERE channel = %s", (channel,))
         self.conn.commit()
+
+    def append_workout_log(self, log_date: str, payload: dict[str, Any], at: datetime) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO workout_logs(log_date, payload, created_at) VALUES (%s, %s, %s)",
+                (log_date, json.dumps(payload), at.isoformat()),
+            )
+        self.conn.commit()
+
+    def last_workout_log(self, log_date: str) -> dict[str, Any] | None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """SELECT payload FROM workout_logs
+                   WHERE log_date = %s ORDER BY id DESC LIMIT 1""",
+                (log_date,),
+            )
+            row = cur.fetchone()
+        if row is None:
+            return None
+        data = json.loads(row[0])
+        return data if isinstance(data, dict) else None
+
+    def replace_last_workout_log(
+        self, log_date: str, payload: dict[str, Any], at: datetime
+    ) -> bool:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """SELECT id FROM workout_logs
+                   WHERE log_date = %s ORDER BY id DESC LIMIT 1""",
+                (log_date,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                return False
+            cur.execute(
+                "UPDATE workout_logs SET payload = %s, created_at = %s WHERE id = %s",
+                (json.dumps(payload), at.isoformat(), row[0]),
+            )
+        self.conn.commit()
+        return True
 
 
 def _draft_fresh(updated_at: datetime | str, now: datetime) -> bool:

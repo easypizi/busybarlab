@@ -44,6 +44,24 @@ def test_memory_and_sqlite_save_plan(tmp_path) -> None:
     assert sqlite.get_plan("missing") is None
 
 
+def test_workout_log_appends_and_corrects(tmp_path) -> None:
+    now = datetime(2026, 9, 22, 18, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+    first = {"date": "2026-09-22", "status": "done", "raw": "сделал"}
+    second = {"date": "2026-09-22", "status": "partial", "raw": "исправь"}
+    other = {"date": "2026-09-23", "status": "skipped", "raw": "пропуск"}
+    stores = (MemoryStore(), SqliteStore(str(tmp_path / "logs.db")))
+    for store in stores:
+        assert store.last_workout_log("2026-09-22") is None
+        assert store.replace_last_workout_log("2026-09-22", second, now) is False
+        store.append_workout_log("2026-09-22", first, now)
+        store.append_workout_log("2026-09-22", second, now)
+        assert store.last_workout_log("2026-09-22") == second
+        store.append_workout_log("2026-09-23", other, now)
+        assert store.replace_last_workout_log("2026-09-22", first, now) is True
+        assert store.last_workout_log("2026-09-22") == first
+        assert store.last_workout_log("2026-09-23") == other
+
+
 def test_draft_roundtrip_and_twelve_hour_expiry(tmp_path) -> None:
     now = datetime(2026, 9, 22, 15, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
     payload = {"title": "Hire", "body": "first", "filename_hint": "", "related": []}

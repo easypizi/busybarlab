@@ -99,6 +99,50 @@ def paco_qr_png(url: str, icon_url: str) -> bytes:
     return buffer.getvalue()
 
 
+CARLOS_TITLE = "Carlos"
+CARLOS_DESCRIPTION = "Day training card"
+CARLOS_PATH = "/creation/carlos/v2/"
+
+
+def carlos_page_url(base: str) -> str:
+    return f"{base.rstrip('/')}{CARLOS_PATH}"
+
+
+def carlos_icon_url(base: str) -> str:
+    return f"{base.rstrip('/')}/carlos.png"
+
+
+def carlos_payload(url: str, icon_url: str) -> dict[str, str]:
+    return {
+        "title": CARLOS_TITLE,
+        "url": url,
+        "description": CARLOS_DESCRIPTION,
+        "iconUrl": icon_url,
+        "themeColor": CREATION_THEME,
+    }
+
+
+def carlos_json(url: str, icon_url: str) -> str:
+    return json.dumps(carlos_payload(url, icon_url), separators=(",", ":"))
+
+
+def carlos_qr_svg(url: str, icon_url: str) -> str:
+    return segno.make(carlos_json(url, icon_url), error="m").svg_inline(scale=10, border=4)
+
+
+def carlos_qr_png(url: str, icon_url: str) -> bytes:
+    buffer = io.BytesIO()
+    segno.make(carlos_json(url, icon_url), error="m").save(
+        buffer,
+        kind="png",
+        scale=10,
+        border=4,
+        dark="#000000",
+        light="#ffffff",
+    )
+    return buffer.getvalue()
+
+
 def creation_target_url(base: str, public: str = "") -> str:
     host = public.strip()
     if host:

@@ -214,6 +214,38 @@ def test_idle_icon_is_512() -> None:
     assert (width, height) == (512, 512)
 
 
+def test_carlos_cap_goatee_and_stopwatch() -> None:
+    module = build()
+    carlos = module.carlos_layers()
+    paco = module.paco_layers()
+    head = _cells(carlos, "head")
+    brim = _cells(carlos, "cap_brim")
+    crown = _cells(carlos, "cap_crown")
+    goatee = _cells(carlos, "goatee")
+    mouth = _cells(carlos, "mouth_shut")
+    _, _, head_top, _ = _span(head)
+    _, _, brim_top, brim_bottom = _span(brim)
+    assert brim_bottom + 2 >= head_top
+    assert min(_ys(carlos, "cap_back")) < brim_top
+    assert goatee.isdisjoint(mouth)
+    assert min(_ys(carlos, "goatee")) > max(_ys(carlos, "mouth_shut"))
+    assert "mustache" not in carlos
+    assert max(_xs(carlos, "body")) - min(_xs(carlos, "body")) > max(_xs(paco, "body")) - min(
+        _xs(paco, "body")
+    )
+    assert carlos["watch_0"] != carlos["watch_1"]
+    assert carlos["watch_1"] != carlos["watch_2"]
+    assert carlos["watch_lit"] != carlos["watch_0"]
+    assert _cells(carlos, "brows").isdisjoint(brim)
+    assert _cells(carlos, "brows_up").isdisjoint(brim)
+    assert _cells(carlos, "eyes_open").isdisjoint(brim)
+    assert _cells(carlos, "eyes_open").isdisjoint(crown)
+    data = module.payload()
+    png = module.png_bytes(module.composite(data["carlos"], module.IDLE["carlos"]), 5, 16)
+    width, height = struct.unpack(">II", png[16:24])
+    assert (width, height) == (512, 512)
+
+
 def test_stage_reads_attach_and_clock() -> None:
     text = (ROOT / "rabbit" / "cast" / "stage.js").read_text(encoding="utf-8")
     assert "cast.attach" in text
@@ -221,4 +253,8 @@ def test_stage_reads_attach_and_clock() -> None:
     assert "glasses_low" in text
     assert "hat_back" in text
     assert "mouth_mid" in text
+    assert "watch_lit" in text
+    assert "cap_back" in text
+    assert "goatee" in text
+    assert "onIdle" in text
     assert "webgl" not in text

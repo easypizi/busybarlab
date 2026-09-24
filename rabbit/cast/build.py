@@ -1,4 +1,4 @@
-"""Draw Tito and Paco once, on a real 96 grid. Icons, cast.js, and the static mirrors come from here."""
+"""Draw Tito, Paco, and Carlos once, on a real 96 grid. Icons, cast.js, and the static mirrors come from here."""
 
 from __future__ import annotations
 
@@ -77,6 +77,12 @@ HEAD_NAMES = {
     "pencil_touch",
     "pencil_bite",
     "fringe",
+    "goatee",
+    "goatee_open",
+    "cap_crown",
+    "cap_band",
+    "cap_brim",
+    "cap_back",
 }
 
 
@@ -195,6 +201,7 @@ class FaceRig:
 
 TITO = FaceRig(29, 32, 36, 36, 43, 49, 51, 56, True, False)
 PACO = FaceRig(36, 36, 41, 41, 48, 51, 54, 59, False, True)
+CARLOS = FaceRig(40, 36, 40, 40, 47, 52, 53, 58, False, False)
 TITO_EYE = {"l": 14, "m": 5, "p": 7, "S": 2}
 PACO_EYE = {"w": 8, "a": 4, "p": 7, "S": 2, "m": 5, "h": 25}
 MOUTH_COLORS = {"S": 2, "h": 25, "k": 6, "8": 8, "s": 1}
@@ -633,6 +640,128 @@ def paco_layers() -> dict[str, list[int]]:
     return layers
 
 
+def carlos_hair(rig: FaceRig) -> list[list[int]]:
+    buf = blank()
+    sym_rect(buf, 33, rig.ear_y, 3, 8, 5)
+    assert_sym(buf, "carlos hair")
+    return buf
+
+
+def goatee_layer(dropped: bool, rig: FaceRig) -> list[int]:
+    buf = blank()
+    top = rig.mouth_y + 3 + (1 if dropped else 0)
+    stamp_axis(
+        buf,
+        top,
+        [
+            "  mmmm  ",
+            " mmmmmm ",
+            "  mmmm  ",
+            "   mm   ",
+        ],
+        {"m": 5},
+    )
+    assert_sym(buf, "goatee")
+    return layer_from(buf)
+
+
+def _cap(buf: list[list[int]], dy: int) -> None:
+    disc(buf, AXIS, 28 + dy, 16, 12, 7)
+    erase(buf, 0, 30 + dy, GRID, GRID)
+    rect(buf, 45, 18 + dy, 6, 3, 9)
+    rect(buf, 32, 30 + dy, 32, 2, 9)
+    rect(buf, 30, 32 + dy, 36, 2, 6)
+    rect(buf, 30, 34 + dy, 36, 1, 9)
+
+
+def carlos_layers() -> dict[str, list[int]]:
+    head = draw_head(CARLOS, 46, 15, 14)
+    hair = carlos_hair(CARLOS)
+    body = blank()
+    sym_rect(body, 14, 68, 10, 24, 1)
+    sym_rect(body, 20, 70, 3, 18, 2)
+    disc(body, AXIS, 74, 28, 14, 6)
+    rect(body, 24, 70, 48, 22, 6)
+    rect(body, 40, 58, 16, 14, 1)
+    rect(body, 28, 90, 40, 6, 7)
+    disc(body, 19, 78, 8, 10, 1)
+    disc(body, 77, 78, 8, 10, 1)
+    disc(body, 18, 80, 4, 7, 2)
+    disc(body, 78, 80, 4, 7, 2)
+    rect(body, 34, 72, 28, 2, 9)
+    for i in range(5):
+        pix(body, 43 - i, 69 + i, 9)
+        pix(body, 52 + i, 69 + i, 9)
+        pix(body, 44 - i, 70 + i, 1)
+        pix(body, 51 + i, 70 + i, 1)
+    sym_rect(body, 34, 76, 8, 6, 7)
+    assert_sym(body, "carlos body")
+
+    cap_crown = blank()
+    disc(cap_crown, AXIS, 28, 16, 12, 7)
+    erase(cap_crown, 0, 30, GRID, GRID)
+    rect(cap_crown, 45, 18, 6, 3, 9)
+    assert_sym(cap_crown, "cap crown")
+    cap_band = blank()
+    rect(cap_band, 32, 30, 32, 2, 9)
+    assert_sym(cap_band, "cap band")
+    cap_brim = blank()
+    rect(cap_brim, 30, 32, 36, 2, 6)
+    rect(cap_brim, 30, 34, 36, 1, 9)
+    assert_sym(cap_brim, "cap brim")
+    cap_back = blank()
+    _cap(cap_back, -4)
+    assert_sym(cap_back, "cap back")
+
+    cord = blank()
+    rect(cord, 47, 70, 2, 8, 11)
+    assert_sym(cord, "watch cord")
+
+    def watch(kind: str) -> list[int]:
+        buf = blank()
+        rect(buf, 41, 78, 14, 12, 7)
+        rect(buf, 43, 80, 10, 8, 20)
+        pix(buf, 47, 79, 11)
+        pix(buf, 48, 79, 11)
+        if kind == "lit":
+            rect(buf, 43, 80, 10, 8, 9)
+        elif kind == "0":
+            rect(buf, 47, 81, 2, 6, 6)
+        elif kind == "1":
+            sym_rect(buf, 44, 81, 2, 6, 6)
+        else:
+            rect(buf, 44, 81, 8, 1, 6)
+            rect(buf, 44, 83, 8, 1, 6)
+            rect(buf, 44, 85, 8, 1, 6)
+        assert_sym(buf, "watch")
+        return layer_from(buf)
+
+    layers = {
+        "body": layer_from(body),
+        "head": layer_from(head),
+        "hair": layer_from(hair),
+        "cap_crown": layer_from(cap_crown),
+        "cap_band": layer_from(cap_band),
+        "cap_brim": layer_from(cap_brim),
+        "cap_back": layer_from(cap_back),
+        "goatee": goatee_layer(False, CARLOS),
+        "goatee_open": goatee_layer(True, CARLOS),
+        "watch_cord": layer_from(cord),
+        "watch_0": watch("0"),
+        "watch_1": watch("1"),
+        "watch_2": watch("2"),
+        "watch_lit": watch("lit"),
+        "brows": brows_layer("rest", CARLOS),
+        "brows_up": brows_layer("up", CARLOS),
+        "brows_knit": brows_layer("knit", CARLOS),
+    }
+    for kind in ("open", "half", "shut", "up", "side_l", "side_r"):
+        layers["eyes_" + kind] = eyes_layer(kind, CARLOS)
+    for kind in ("shut", "mid", "a", "o", "e", "m", "con"):
+        layers["mouth_" + kind] = mouth_layer(kind, CARLOS)
+    return layers
+
+
 CAST_ORDER = {
     "tito": [
         "body",
@@ -708,6 +837,38 @@ CAST_ORDER = {
         "mouth_m",
         "mouth_con",
     ],
+    "carlos": [
+        "body",
+        "watch_cord",
+        "watch_0",
+        "watch_1",
+        "watch_2",
+        "watch_lit",
+        "head",
+        "hair",
+        "cap_crown",
+        "cap_band",
+        "cap_brim",
+        "cap_back",
+        "goatee",
+        "goatee_open",
+        "eyes_open",
+        "eyes_half",
+        "eyes_shut",
+        "eyes_up",
+        "eyes_side_l",
+        "eyes_side_r",
+        "brows",
+        "brows_up",
+        "brows_knit",
+        "mouth_shut",
+        "mouth_mid",
+        "mouth_a",
+        "mouth_o",
+        "mouth_e",
+        "mouth_m",
+        "mouth_con",
+    ],
 }
 
 IDLE = {
@@ -733,6 +894,20 @@ IDLE = {
         "hat_brim",
         "pencil_ear",
         "mustache",
+        "eyes_open",
+        "brows",
+        "mouth_shut",
+    ],
+    "carlos": [
+        "body",
+        "watch_cord",
+        "watch_0",
+        "head",
+        "hair",
+        "cap_crown",
+        "cap_band",
+        "cap_brim",
+        "goatee",
         "eyes_open",
         "brows",
         "mouth_shut",
@@ -801,7 +976,8 @@ def mirror(src: Path, dest: Path) -> None:
 def payload() -> dict:
     tito = tito_layers()
     paco = paco_layers()
-    for who, layers in (("tito", tito), ("paco", paco)):
+    carlos = carlos_layers()
+    for who, layers in (("tito", tito), ("paco", paco), ("carlos", carlos)):
         missing = [name for name in layers if name not in CAST_ORDER[who]]
         extra = [name for name in CAST_ORDER[who] if name not in layers]
         if missing or extra:
@@ -811,10 +987,15 @@ def payload() -> dict:
         "grid": GRID,
         "scale": 2,
         "order": CAST_ORDER,
-        "attach": {"tito": attach_map("tito"), "paco": attach_map("paco")},
+        "attach": {
+            "tito": attach_map("tito"),
+            "paco": attach_map("paco"),
+            "carlos": attach_map("carlos"),
+        },
         "idle": IDLE,
         "tito": tito,
         "paco": paco,
+        "carlos": carlos,
     }
 
 
@@ -856,11 +1037,13 @@ def main() -> None:
     stage = (ROOT / "rabbit" / "cast" / "stage.js").read_text(encoding="utf-8")
     tito_png = png_bytes(composite(data["tito"], IDLE["tito"]), 5, 16)
     paco_png = png_bytes(composite(data["paco"], IDLE["paco"]), 5, 16)
+    carlos_png = png_bytes(composite(data["carlos"], IDLE["carlos"]), 5, 16)
     if len(tito_png) < 8 or ICON != 512:
         raise ValueError("icon render failed")
     for folder, png, icon_name in (
         (ROOT / "rabbit" / "assistant", tito_png, "tito.png"),
         (ROOT / "rabbit" / "paco", paco_png, "paco.png"),
+        (ROOT / "rabbit" / "carlos", carlos_png, "carlos.png"),
     ):
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "cast.js").write_text(text, encoding="utf-8")
@@ -872,6 +1055,7 @@ def main() -> None:
     (ROOT / "rabbit" / "assistant" / "ostanovka.png").write_bytes(sign)
     mirror(ROOT / "rabbit" / "assistant", ROOT / "services" / "assistant" / "static" / "creation")
     mirror(ROOT / "rabbit" / "paco", ROOT / "services" / "assistant" / "static" / "paco")
+    mirror(ROOT / "rabbit" / "carlos", ROOT / "services" / "assistant" / "static" / "carlos")
 
 
 def write_sheet(path: Path) -> None:
@@ -893,11 +1077,19 @@ def write_sheet(path: Path) -> None:
             ("speak", ["body", "notebook", "head", "hair", "hat_crown", "hat_band", "hat_brim", "pencil_ear", "mustache_open", "eyes_open", "brows", "mouth_o"]),
             ("action", ["body", "notebook", "mark_2", "head", "hair", "hat_crown", "hat_band", "hat_brim", "pencil_ear", "mustache", "eyes_open", "brows", "mouth_shut"]),
         ],
+        "carlos": [
+            ("idle", IDLE["carlos"]),
+            ("blink", ["body", "watch_cord", "watch_0", "head", "hair", "cap_crown", "cap_band", "cap_brim", "goatee", "eyes_shut", "brows", "mouth_shut"]),
+            ("listen", ["body", "watch_cord", "watch_0", "head", "hair", "cap_crown", "cap_band", "cap_brim", "goatee", "eyes_open", "brows_up", "mouth_shut"]),
+            ("think", ["body", "watch_cord", "watch_1", "head", "hair", "cap_back", "goatee", "eyes_up", "brows_knit", "mouth_shut"]),
+            ("speak", ["body", "watch_cord", "watch_0", "head", "hair", "cap_crown", "cap_band", "cap_brim", "goatee_open", "eyes_open", "brows", "mouth_a"]),
+            ("action", ["body", "watch_cord", "watch_lit", "head", "hair", "cap_crown", "cap_band", "cap_brim", "goatee", "eyes_open", "brows", "mouth_shut"]),
+        ],
     }
     cell = GRID
     cols = 6
-    sheet = [[0] * (cols * cell) for _ in range(2 * cell)]
-    for row, who in enumerate(("tito", "paco")):
+    sheet = [[0] * (cols * cell) for _ in range(3 * cell)]
+    for row, who in enumerate(("tito", "paco", "carlos")):
         for col, (_label, names) in enumerate(poses[who]):
             buf = composite(data[who], names)
             for y in range(cell):

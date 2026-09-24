@@ -14,7 +14,12 @@ from fastapi.staticfiles import StaticFiles
 from toy_lair_assistant.agent import invoke_agent
 from toy_lair_assistant.auth import require_token
 from toy_lair_assistant.clock import Clock
+from toy_lair_assistant.carlos import entry_line
 from toy_lair_assistant.install_qr import (
+    carlos_icon_url,
+    carlos_page_url,
+    carlos_qr_png,
+    carlos_qr_svg,
     creation_target_url,
     paco_icon_url,
     paco_page_url,
@@ -24,7 +29,7 @@ from toy_lair_assistant.install_qr import (
     qr_svg,
 )
 from toy_lair_assistant.pairing import Pairing, PairingFull
-from toy_lair_assistant.paths import creation_dir, paco_dir
+from toy_lair_assistant.paths import carlos_dir, creation_dir, paco_dir
 from toy_lair_assistant.settings import Settings
 from toy_lair_assistant.ticker import run_periodic
 from toy_lair_assistant.zayka_sync import attach_zayka
@@ -52,6 +57,7 @@ class AppDeps:
     notify: Any = None
     pairing: Pairing | None = None
     paco: Any = None
+    carlos: Any = None
 
 
 def create_app(
@@ -67,6 +73,7 @@ def create_app(
     notify: Any = None,
     pairing: Pairing | None = None,
     paco: Any = None,
+    carlos: Any = None,
 ) -> FastAPI:
     settings = settings or Settings()
     deps = AppDeps(
@@ -81,6 +88,7 @@ def create_app(
         notify=notify,
         pairing=pairing or Pairing(settings.assistant_api_token),
         paco=paco,
+        carlos=carlos,
     )
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -246,6 +254,52 @@ def create_app(
             raise HTTPException(status_code=503, detail="paco is not configured")
         return deps.paco.inbox_payload()
 
+    def _carlos_card(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        text = str(payload.get("text") or "").strip()
+        date = str(payload.get("date") or "").strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="text is required")
+        if len(date) != 10 or date[4] != "-" or date[7] != "-":
+            raise HTTPException(status_code=400, detail="date is required")
+        names = payload.get("exercises") or []
+        if not isinstance(names, list):
+            names = []
+        return text, {
+            "date": date,
+            "sessionId": str(payload.get("sessionId") or ""),
+            "title": str(payload.get("title") or ""),
+            "exercises": [str(name) for name in names if str(name).strip()],
+        }
+
+    @app.post("/api/carlos/log")
+    def carlos_log(
+        payload: dict[str, Any],
+        x_assistant_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        _guard(x_assistant_token)
+        if deps.carlos is None:
+            raise HTTPException(status_code=503, detail="carlos is not configured")
+        text, card = _carlos_card(payload)
+        result = deps.carlos.log(text, card)
+        return {
+            "ok": result.ok,
+            "reply": result.reply,
+            "entry": result.entry,
+            "line": result.line,
+            "action": result.action,
+        }
+
+    @app.get("/api/carlos/log")
+    def carlos_log_get(
+        date: str = "",
+        x_assistant_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        _guard(x_assistant_token)
+        if deps.carlos is None:
+            raise HTTPException(status_code=503, detail="carlos is not configured")
+        entry = deps.carlos.last(date.strip())
+        return {"entry": entry, "line": entry_line(entry) if entry else ""}
+
     @app.post("/api/tasks/{task_id}/complete")
     def complete_task(
         task_id: str,
@@ -341,6 +395,34 @@ def create_app(
         url = paco_page_url(base)
         return Response(content=paco_qr_png(url, paco_icon_url(base)), media_type="image/png")
 
+    @app.get("/carlos.png")
+    def carlos_icon() -> FileResponse:
+        icon = carlos_dir() / "carlos.png"
+        if not icon.exists():
+            raise HTTPException(status_code=404, detail="icon is missing")
+        return FileResponse(icon, media_type="image/png")
+
+    @app.get("/api/carlos/creation-url")
+    def carlos_creation_url(request: Request) -> dict[str, str]:
+        base = deps.settings.public_base_url.strip() or str(request.base_url)
+        return {"url": carlos_page_url(base)}
+
+    @app.get("/api/carlos/install-qr.svg")
+    def carlos_install_qr_svg(
+        request: Request,
+        x_assistant_token: str | None = Header(default=None),
+    ) -> Response:
+        _guard(x_assistant_token)
+        base = deps.settings.public_base_url.strip() or str(request.base_url)
+        url = carlos_page_url(base)
+        return Response(content=carlos_qr_svg(url, carlos_icon_url(base)), media_type="image/svg+xml")
+
+    @app.get("/api/carlos/install-qr.png")
+    def carlos_install_qr_png(request: Request) -> Response:
+        base = deps.settings.public_base_url.strip() or str(request.base_url)
+        url = carlos_page_url(base)
+        return Response(content=carlos_qr_png(url, carlos_icon_url(base)), media_type="image/png")
+
     @app.get("/api/creation-url")
     def creation_url(request: Request) -> dict[str, str]:
         base = deps.settings.public_base_url.strip() or str(request.base_url)
@@ -377,6 +459,10 @@ def create_app(
         sent = scheduler.tick(deps.clock.now())
         return {"sent": sent}
 
+    carlos_static = carlos_dir()
+    if carlos_static.exists():
+        app.mount("/creation/carlos/v2", StaticFiles(directory=carlos_static, html=True), name="carlos-v2")
+        app.mount("/creation/carlos", StaticFiles(directory=carlos_static, html=True), name="carlos")
     paco_static = paco_dir()
     if paco_static.exists():
         app.mount("/creation/paco/v2", StaticFiles(directory=paco_static, html=True), name="paco-v2")
