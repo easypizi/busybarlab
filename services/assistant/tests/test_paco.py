@@ -23,7 +23,25 @@ class ScriptedLLM:
         return self.scripts.pop(0)
 
 
-def _agent(tmp_path: Path, llm: ScriptedLLM, fail: str = "") -> PacoAgent:
+class RecordingNotify:
+    def __init__(self) -> None:
+        self.sent: list[str] = []
+
+    def send_text(self, text: str) -> None:
+        self.sent.append(text)
+
+
+class BrokenNotify:
+    def send_text(self, text: str) -> None:
+        raise RuntimeError("down")
+
+
+def _agent(
+    tmp_path: Path,
+    llm: ScriptedLLM,
+    fail: str = "",
+    notify: object | None = None,
+) -> PacoAgent:
     calls: list[list[str]] = []
 
     def runner(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -32,6 +50,9 @@ def _agent(tmp_path: Path, llm: ScriptedLLM, fail: str = "") -> PacoAgent:
         stderr = ""
         if fail == "push" and args[:2] == ["git", "push"]:
             code = 1
+        if fail == "pull" and args[:2] == ["git", "pull"]:
+            code = 1
+            stderr = "fatal: Not possible to fast-forward"
         if fail == "auth" and args[:2] == ["git", "pull"]:
             code = 1
             stderr = "Authentication failed for https://github.com/easypizi/zayka.git"
@@ -41,7 +62,7 @@ def _agent(tmp_path: Path, llm: ScriptedLLM, fail: str = "") -> PacoAgent:
 
     vault = PacoVault(tmp_path, ZONE)
     writer = ZaykaWrite(tmp_path, runner, ZONE)
-    agent = PacoAgent(llm, vault, writer, lambda: NOW, store=MemoryStore())
+    agent = PacoAgent(llm, vault, writer, lambda: NOW, store=MemoryStore(), notify=notify)
     agent.git_calls = calls
     return agent
 
@@ -214,6 +235,67 @@ def test_daily_phrase_appends_draft_body(tmp_path: Path) -> None:
     text = (tmp_path / "60 Daily" / "2026" / "09" / "2026-09-22.md").read_text(encoding="utf-8")
     assert "evening thought" in text
     assert "nope" not in text
+
+
+def test_push_failure_sends_the_note_once(tmp_path: Path) -> None:
+    notify = RecordingNotify()
+    agent = _agent(tmp_path, ScriptedLLM([]), fail="push", notify=notify)
+    agent._user_text = "запиши"
+    note = agent._inbox_create("Hire", "A thought", "hire scope idea")
+    assert note == "Push failed."
+    assert len(notify.sent) == 1
+    assert "00 Inbox/2026-09-22-hire-scope-idea.md" in notify.sent[0]
+    assert "A thought" in notify.sent[0]
+    assert notify.sent[0].startswith("Paco could not push this note.")
+
+
+def test_token_expired_sends_the_note(tmp_path: Path) -> None:
+    notify = RecordingNotify()
+    agent = _agent(tmp_path, ScriptedLLM([]), fail="auth", notify=notify)
+    agent._user_text = "запиши"
+    note = agent._inbox_create("Hire", "A thought", "hire")
+    assert note == "GitHub token expired. Update ZAYKA_REPO_URL."
+    assert len(notify.sent) == 1
+    assert "00 Inbox/2026-09-22-hire.md" in notify.sent[0]
+    assert "A thought" in notify.sent[0]
+
+
+def test_successful_write_does_not_notify(tmp_path: Path) -> None:
+    notify = RecordingNotify()
+    agent = _agent(tmp_path, ScriptedLLM([]), notify=notify)
+    agent._user_text = "запиши"
+    note = agent._inbox_create("Hire", "A thought", "hire")
+    assert note.startswith("Wrote to Inbox")
+    assert notify.sent == []
+
+
+def test_pull_failure_does_not_notify(tmp_path: Path) -> None:
+    notify = RecordingNotify()
+    agent = _agent(tmp_path, ScriptedLLM([]), fail="pull", notify=notify)
+    agent._user_text = "запиши"
+    note = agent._inbox_create("Hire", "A thought", "hire")
+    assert note == "Pull failed. The vault is ahead."
+    assert notify.sent == []
+    assert not (tmp_path / "00 Inbox").exists()
+
+
+def test_notify_failure_still_returns_push_failed(tmp_path: Path) -> None:
+    agent = _agent(tmp_path, ScriptedLLM([]), fail="push", notify=BrokenNotify())
+    agent._user_text = "запиши"
+    note = agent._inbox_create("Hire", "A thought", "hire")
+    assert note == "Push failed."
+
+
+def test_daily_push_failure_sends_the_block(tmp_path: Path) -> None:
+    notify = RecordingNotify()
+    agent = _agent(tmp_path, ScriptedLLM([]), fail="push", notify=notify)
+    agent._user_text = "в дневник"
+    note = agent._daily_append("evening thought")
+    assert note == "Push failed."
+    assert len(notify.sent) == 1
+    assert "60 Daily/2026/09/2026-09-22.md" in notify.sent[0]
+    assert "## Capture 15:04" in notify.sent[0]
+    assert "evening thought" in notify.sent[0]
 
 
 def test_one_shot_save_without_draft(tmp_path: Path) -> None:

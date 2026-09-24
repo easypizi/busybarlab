@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from toy_lair_assistant.agent import AgentResult, ToolCall
 from toy_lair_assistant.paco_vault import PacoVault
 from toy_lair_assistant.zayka_write import ZaykaWrite
+
+log = logging.getLogger(__name__)
 
 CHANNEL = "r1-paco"
 DRAFT_BODY_LIMIT = 1500
@@ -119,12 +123,14 @@ class PacoAgent:
         writer: ZaykaWrite,
         now: Any,
         store: Any = None,
+        notify: Any = None,
     ) -> None:
         self.llm = llm
         self.vault = vault
         self.writer = writer
         self.now = now
         self.store = store
+        self.notify = notify
         self.tools = {
             "zayka_search": self._search,
             "zayka_read": self._read,
@@ -309,6 +315,8 @@ class PacoAgent:
             filename_hint,
             related,
         )
+        if result.message in {"push_failed", "token_expired"}:
+            self._rescue(result.path, title, body)
         if result.message == "wrote":
             self._saved = True
             self._clear_draft()
@@ -328,6 +336,8 @@ class PacoAgent:
         if not str(body).strip():
             return "Refused."
         result = self.writer.daily_append(self.now(), body)
+        if result.message in {"push_failed", "token_expired"}:
+            self._rescue(result.path, "", body)
         if result.message == "wrote":
             self._saved = True
             self._clear_draft()
@@ -339,6 +349,22 @@ class PacoAgent:
         if result.message == "token_expired":
             return "GitHub token expired. Update ZAYKA_REPO_URL."
         return "Refused."
+
+    def _rescue(self, path: str, title: str, body: str) -> None:
+        sender = getattr(self.notify, "send_text", None)
+        if sender is None:
+            return
+        note = _note_on_disk(self.vault.root, path) or _fallback_note(title, body)
+        text = (
+            "Paco could not push this note. It exists only on the dyno.\n"
+            f"{path}\n"
+            "\n"
+            f"{note}"
+        )
+        try:
+            sender(text)
+        except Exception:
+            log.exception("paco note rescue failed")
 
     def _from_draft(
         self,
@@ -380,6 +406,30 @@ class PacoAgent:
             return
         self.store.add_turn(CHANNEL, "user", user, now)
         self.store.add_turn(CHANNEL, "assistant", reply, now)
+
+
+def _note_on_disk(root: Path, relative: str) -> str:
+    norm = relative.replace("\\", "/")
+    if not norm or ".." in norm.split("/"):
+        return ""
+    root_resolved = root.resolve()
+    target = (root_resolved / norm).resolve()
+    if target != root_resolved and root_resolved not in target.parents:
+        return ""
+    if not target.is_file():
+        return ""
+    try:
+        return target.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _fallback_note(title: str, body: str) -> str:
+    title = title.strip()
+    body = body.strip()
+    if title and body:
+        return f"{title}\n\n{body}"
+    return title or body
 
 
 def _related_list(related: Any) -> list[str]:

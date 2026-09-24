@@ -8,6 +8,7 @@ data/cursor_tokens.json
 data/backups/
 data/anims/
 data/*.log
+data/zayka-pull.alert
 *.egg-info/
 dist/
 build/

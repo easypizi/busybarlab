@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>app.toy_lair.zayka-pull</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__HELPER__</string>
+    <string>__REPO_ROOT__/deploy/launchd/zayka-pull.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/private/tmp</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>__INTERVAL__</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>ZAYKA_DIR</key>
+    <string>__ZAYKA_DIR__</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/zayka-pull.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/zayka-pull.err.log</string>
+</dict>
+</plist>

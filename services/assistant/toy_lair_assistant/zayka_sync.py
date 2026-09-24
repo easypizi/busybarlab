@@ -75,6 +75,7 @@ def _attach_paco(deps: Any, path: Path) -> None:
         writer=ZaykaWrite(root, git_runner, zone),
         now=deps.clock.now,
         store=getattr(deps, "store", None),
+        notify=getattr(deps, "notify", None),
     )
 
 

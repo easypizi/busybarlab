@@ -128,6 +128,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             writer=ZaykaWrite(root, git_runner, zone),
             now=clock.now,
             store=store,
+            notify=notify,
         )
     app = create_app(
         settings,
