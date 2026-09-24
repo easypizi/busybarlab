@@ -11,7 +11,16 @@ from toy_lair_assistant.zayka_write import ZaykaWrite
 
 CHANNEL = "r1-paco"
 DRAFT_BODY_LIMIT = 1500
-INBOX_CUES = ("запиши", "сохрани", "в inbox", "write it down")
+INBOX_CUES = (
+    "запиши",
+    "сохрани",
+    "сохраня",
+    "добав",
+    "в inbox",
+    "в обсиди",
+    "write it down",
+    "save it",
+)
 DAILY_CUES = ("в дневник", "в daily", "today's note")
 
 PACO_TOOL_SCHEMAS = [
@@ -203,7 +212,7 @@ class PacoAgent:
         )
         lines.append(
             "Call zayka_inbox_create only when this message has a save phrase: "
-            "запиши, сохрани, в inbox, write it down."
+            "запиши, сохрани, сохраняй, добавь, в inbox, в обсидиан, write it down."
         )
         lines.append(
             "Call zayka_daily_append only when this message has a daily phrase: "

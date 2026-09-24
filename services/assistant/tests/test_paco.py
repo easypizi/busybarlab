@@ -30,7 +30,7 @@ def _agent(tmp_path: Path, llm: ScriptedLLM, fail: str = "") -> PacoAgent:
         calls.append(list(args))
         code = 0
         stderr = ""
-        if fail == "push" and args == ["git", "push"]:
+        if fail == "push" and args[:2] == ["git", "push"]:
             code = 1
         if fail == "auth" and args[:2] == ["git", "pull"]:
             code = 1
@@ -175,6 +175,13 @@ def test_draft_update_skips_git_and_keeps_title(tmp_path: Path) -> None:
     prompt = agent.system_prompt(NOW)
     assert "TAIL" not in prompt
     assert "a" * 1500 in prompt
+
+
+def test_save_imperative_counts_as_inbox_cue(tmp_path: Path) -> None:
+    agent = _agent(tmp_path, ScriptedLLM([]))
+    agent._user_text = "Сохраняй заметку давай"
+    note = agent._inbox_create(title="Paco", body="проверка", filename_hint="paco check")
+    assert note.startswith("Wrote to Inbox")
 
 
 def test_write_without_save_phrase_does_not_touch_git(tmp_path: Path) -> None:

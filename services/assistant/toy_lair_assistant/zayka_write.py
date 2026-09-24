@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import subprocess
 from collections.abc import Callable
@@ -10,6 +11,8 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from toy_lair_assistant.paco_vault import PacoVault
+
+log = logging.getLogger(__name__)
 
 Runner = Callable[..., Any]
 
@@ -146,7 +149,7 @@ class ZaykaWrite:
         ]
         if not self._run(commit):
             return self._fail(rel)
-        if not self._run(["git", "push"]):
+        if not self._run(["git", "push", "origin", "HEAD"]):
             return self._fail(rel)
         return WriteResult(True, rel, "wrote")
 
@@ -164,7 +167,11 @@ class ZaykaWrite:
         result = self.runner(args, cwd=self.root)
         error = f"{getattr(result, 'stderr', '') or ''} {getattr(result, 'stdout', '') or ''}"
         self.last_error = error
-        return int(getattr(result, "returncode", 1)) == 0
+        ok = int(getattr(result, "returncode", 1)) == 0
+        if not ok:
+            redacted = re.sub(r"https://[^@\s]+@", "https://***@", error)
+            log.warning("git failed cmd=%s err=%s", args[:4], redacted[:400])
+        return ok
 
 
 def allowed_write(relative: str) -> bool:

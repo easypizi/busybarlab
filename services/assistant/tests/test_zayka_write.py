@@ -17,7 +17,7 @@ def _writer(tmp_path: Path, fail: str = "") -> tuple[ZaykaWrite, list[list[str]]
         code = 1 if fail and args[:2] == ["git", fail] else 0
         if fail == "pull" and args[:3] == ["git", "pull", "--ff-only"]:
             code = 1
-        if fail == "push" and args == ["git", "push"]:
+        if fail == "push" and args[:2] == ["git", "push"]:
             code = 1
         return subprocess.CompletedProcess(args, code)
 
@@ -45,7 +45,7 @@ def test_inbox_create_writes_fleeting_template(tmp_path: Path) -> None:
     assert "## Related" not in text
     assert "Обработать до: 2026-09-24" in text
     assert "A short thought" in text
-    assert ["git", "push"] in calls
+    assert ["git", "push", "origin", "HEAD"] in calls
     add = next(args for args in calls if args[:2] == ["git", "add"])
     assert add == ["git", "add", "--", "00 Inbox/2026-09-22-hire-scope-idea.md"]
     commit = next(args for args in calls if "commit" in args)
@@ -111,7 +111,7 @@ def test_pull_failure_writes_nothing_and_does_not_push(tmp_path: Path) -> None:
     result = writer.inbox_create(NOW, "Idea", "text", "idea", [])
     assert result.message == "pull_failed"
     assert not (tmp_path / "00 Inbox" / "2026-09-22-idea.md").exists()
-    assert not any(args == ["git", "push"] for args in calls)
+    assert not any(args[:2] == ["git", "push"] for args in calls)
 
 
 def test_push_failure_does_not_report_wrote(tmp_path: Path) -> None:
@@ -119,4 +119,4 @@ def test_push_failure_does_not_report_wrote(tmp_path: Path) -> None:
     result = writer.inbox_create(NOW, "Idea", "text", "idea", [])
     assert result.message == "push_failed"
     assert result.ok is False
-    assert ["git", "push"] in calls
+    assert ["git", "push", "origin", "HEAD"] in calls
