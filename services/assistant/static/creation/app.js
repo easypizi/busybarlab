@@ -26,21 +26,19 @@
     $("status").textContent = text;
   }
 
+  var stage = window.createStage($("stage"), $("dialog"), "tito");
+
   function setReply(text) {
-    var reply = $("reply");
-    reply.textContent = text;
-    if ((text || "").length > 120) reply.classList.add("long");
-    else reply.classList.remove("long");
-    reply.scrollTop = 0;
+    stage.fail(text);
   }
 
   function replyOverflows() {
-    var reply = $("reply");
-    return reply.scrollHeight > reply.clientHeight + 4;
+    var box = $("dialog");
+    return box.scrollHeight > box.clientHeight + 4;
   }
 
   function scrollReply(delta) {
-    $("reply").scrollTop += delta;
+    stage.scroll(delta);
   }
 
   function showPair(code) {
@@ -380,6 +378,7 @@
 
   function sendText(text) {
     setStatus("sending");
+    stage.setMode("think");
     beacon("text", text);
     fetch(API + "/api/text", {
       method: "POST",
@@ -394,14 +393,15 @@
         });
       })
       .then(function (data) {
-        setReply(data.reply || "");
         setStatus(text);
+        stage.speak(data.reply || "", data.action || "");
         speak(data.reply || "");
         loadToday();
       })
       .catch(function (err) {
         var message = String(err.message || err);
         setStatus(message);
+        stage.fail(message);
         beacon("text err", message);
       });
   }
@@ -416,6 +416,7 @@
     listening = true;
     setPeek(false);
     document.body.classList.add("recording");
+    stage.setMode("listen");
     setStatus("listening");
     CreationVoiceHandler.postMessage("start");
     beacon("stt start", "");
@@ -457,16 +458,18 @@
     var text = String(data.transcript || "").trim();
     if (!text) {
       setStatus("heard nothing");
+      stage.fail("heard nothing");
       beacon("stt empty", "");
       return;
     }
+    stage.heard(text);
     sendText(text);
   };
 
   window.addEventListener("scrollUp", function () {
     logEvent("scrollUp");
     if (listening) return;
-    if (!peekOpen && replyOverflows() && $("reply").scrollTop > 0) {
+    if (!peekOpen && replyOverflows() && $("dialog").scrollTop > 0) {
       scrollReply(-40);
       return;
     }
@@ -486,7 +489,7 @@
     logEvent("scrollDown");
     if (listening) return;
     if (!peekOpen && replyOverflows()) {
-      var reply = $("reply");
+      var reply = $("dialog");
       if (reply.scrollTop + reply.clientHeight < reply.scrollHeight - 2) {
         scrollReply(40);
         return;
@@ -555,7 +558,7 @@
       stopRec();
     });
   }
-  bindHold($("rec"));
+  bindHold($("stage"));
 
   loadToken()
     .then(function () {

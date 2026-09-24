@@ -42,11 +42,12 @@ def test_creation_index_is_r1_sized() -> None:
     assert "storage: local" in script.text
     assert "storage failed" in script.text
     assert 'id="hint"' in body
-    assert "hold PTT or circle" in body
-    assert "wheel today" in body
+    assert "hold PTT · wheel today" in body
     assert "PTT click done" not in body
     assert "wheel select" not in body
-    assert 'id="rec"' in body
+    assert 'id="stage"' in body
+    assert 'id="dialog"' in body
+    assert 'id="rec"' not in body
     assert 'id="count"' in body
     assert 'id="tap-gate"' not in body
     assert 'id="peek"' in body
@@ -59,9 +60,8 @@ def test_creation_index_is_r1_sized() -> None:
     css = client.get("/creation/styles.css")
     assert css.status_code == 200
     assert "#FE5000" in css.text
-    assert "@keyframes" in css.text
-    assert "64px" in css.text
-    assert "#reply.long" in css.text
+    assert "128px" in css.text
+    assert "#dialog" in css.text
     assert "#list { list-style: none; height: 100%; overflow-y: auto; }" in css.text
     assert "#tap-gate" not in css.text
     script = client.get("/creation/app.js")
@@ -77,6 +77,8 @@ def test_creation_index_is_r1_sized() -> None:
     assert "wantsR1Response" in script.text
     assert "listening" in script.text
     assert "getUserMedia" not in script.text
+    assert "webgl" not in script.text
+    assert "createStage" in script.text
     icon = client.get("/creation/icon.png")
     assert icon.status_code == 200
     assert icon.content[:8] == b"\x89PNG\r\n\x1a\n"

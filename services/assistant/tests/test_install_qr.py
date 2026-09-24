@@ -129,7 +129,7 @@ def test_creation_is_direct_html_and_short_path_is_gone() -> None:
     assert "text/html" in page.headers["content-type"]
     assert bust.status_code == 200
     assert "text/html" in bust.headers["content-type"]
-    assert "hold PTT or circle" in bust.text
+    assert "hold PTT · wheel today" in bust.text
     assert gone.status_code == 404
 
 

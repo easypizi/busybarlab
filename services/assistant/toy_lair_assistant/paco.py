@@ -99,6 +99,7 @@ PACO_TOOL_SCHEMAS = [
 class PacoResult:
     reply: str
     peek: dict[str, Any] = field(default_factory=dict)
+    action: str = ""
 
 
 class PacoAgent:
@@ -132,6 +133,7 @@ class PacoAgent:
         self._user_text = text
         self._searched = False
         self._hits = []
+        self._saved = False
         messages: list[dict[str, Any]] = [{"role": "system", "content": self.system_prompt(now)}]
         if self.store is not None and hasattr(self.store, "recent_turns"):
             for turn in self.store.recent_turns(CHANNEL, now, limit=6, ttl_minutes=15):
@@ -156,7 +158,7 @@ class PacoAgent:
         reply = last.reply or "ok"
         self._remember(text, reply, now)
         peek = self._hit_peek() if self._searched else self.inbox_payload()
-        return PacoResult(reply=reply, peek=peek)
+        return PacoResult(reply=reply, peek=peek, action="saved" if self._saved else "")
 
     def inbox_payload(self) -> dict[str, Any]:
         items, count = self.vault.list_inbox(self.now())
@@ -299,6 +301,7 @@ class PacoAgent:
             related,
         )
         if result.message == "wrote":
+            self._saved = True
             self._clear_draft()
             return f"Wrote to Inbox: {title}"
         if result.message == "pull_failed":
@@ -317,6 +320,7 @@ class PacoAgent:
             return "Refused."
         result = self.writer.daily_append(self.now(), body)
         if result.message == "wrote":
+            self._saved = True
             self._clear_draft()
             return "Added to daily."
         if result.message == "pull_failed":

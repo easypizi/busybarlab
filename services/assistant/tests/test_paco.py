@@ -82,6 +82,7 @@ def test_inbox_create_tool_reports_write_and_peek_is_inbox(tmp_path: Path) -> No
     assert "saved" not in result.reply.lower()
     assert (tmp_path / "00 Inbox" / "2026-09-22-hire-scope-idea.md").exists()
     assert result.peek["kind"] == "inbox"
+    assert result.action == "saved"
     note = agent._inbox_create("Hire", "A thought", "other idea")
     assert note == "Wrote to Inbox: Hire"
 
@@ -101,6 +102,26 @@ def test_push_failure_keeps_the_draft(tmp_path: Path) -> None:
     assert note == "Push failed."
     assert "Wrote to Inbox" not in note
     assert agent.store.get_draft("r1-paco", NOW)["body"] == "keep me"
+    missed = _agent(
+        tmp_path / "miss",
+        ScriptedLLM(
+            [
+                AgentResult(
+                    reply="",
+                    tool_calls=[
+                        ToolCall(
+                            "zayka_inbox_create",
+                            {"title": "Hire", "body": "keep me", "filename_hint": "hire"},
+                            "c1",
+                        )
+                    ],
+                ),
+                AgentResult(reply="no"),
+            ]
+        ),
+        fail="push",
+    )
+    assert missed.handle_text("запиши").action == ""
 
 
 def test_search_sets_hit_peek(tmp_path: Path) -> None:

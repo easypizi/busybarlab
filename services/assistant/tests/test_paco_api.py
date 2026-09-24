@@ -135,6 +135,10 @@ def test_paco_creation_is_voice_home() -> None:
     assert "CreationVoiceHandler" in script.text
     assert "wantsR1Response" in script.text
     assert "getUserMedia" not in script.text
+    assert 'id="stage"' in page.text
+    assert 'id="dialog"' in page.text
+    assert 'id="rec"' not in page.text
+    assert "webgl" not in script.text
     assert "/api/paco/text" in script.text
     assert "/api/paco/inbox" in script.text
     assert 'event: "paco "' in script.text
@@ -145,6 +149,22 @@ def test_paco_creation_is_voice_home() -> None:
     assert (width, height) == (512, 512)
     assert "Install Paco" in install.text
     assert "/api/paco/install-qr.png" in install.text
+
+
+def test_tito_text_reports_a_task_action() -> None:
+    class TaskTito(FakeTito):
+        def handle_text(self, text: str, channel: str = "r1") -> AgentResult:
+            return AgentResult(reply="added", used_tools=["todoist_add"])
+
+    app = _app(TaskTito(), FakePaco())
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/text",
+            headers={"X-Assistant-Token": "secret"},
+            json={"text": "add milk"},
+        )
+    assert response.status_code == 200
+    assert response.json()["action"] == "task"
 
 
 def test_factory_builds_paco_without_todoist(tmp_path) -> None:

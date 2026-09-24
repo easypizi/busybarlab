@@ -15,14 +15,18 @@
       <p id="count"></p>
       <p id="pair"></p>
     </header>
-    <div id="rec" aria-hidden="true"></div>
-    <p id="reply">hold PTT and talk</p>
+    <div id="stage-wrap">
+      <canvas id="stage" width="128" height="128"></canvas>
+      <div id="dialog"></div>
+    </div>
     <section id="peek" hidden>
       <ol id="list"></ol>
     </section>
     <p id="event-log"></p>
     <p id="hint">hold PTT · wheel inbox</p>
   </main>
+  <script src="cast.js"></script>
+  <script src="stage.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

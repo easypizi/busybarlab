@@ -30,6 +30,12 @@ Read `devices/<name>/README.md` before writing code for that device. Do not gues
 - R1 creations and `getUserMedia` need HTTPS.
 - macOS Local Network permission is per app. Python in the terminal is not `curl`.
 
+## Agents
+
+R1 agents share a Mexican given name and one trade tool. Tito keeps the calendar. Paco keeps the notebook. Costume and tools carry the culture. Do not caricature face proportions.
+
+Palette is `#111` ground, `#FE5000` accent, teal `#1A9B96` and pink `#E25B8A` only in trim. Draw every character in `rabbit/cast/build.py` and run that file so the icon and the screen bust stay the same pixels.
+
 ## Zayka
 
 Never index or send `40 Areas/sensitive/`. Do not write to the vault from the assistant.

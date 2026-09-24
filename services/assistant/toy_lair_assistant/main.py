@@ -207,7 +207,9 @@ def create_app(
             raise HTTPException(status_code=503, detail="agent is not configured")
         message = str(payload.get("text") or "").strip()
         result = invoke_agent(deps.agent, message, channel="r1", notify=deps.notify)
-        return {"reply": result.reply}
+        used = set(getattr(result, "used_tools", []) or [])
+        action = "task" if used & {"todoist_add", "plan_apply"} else ""
+        return {"reply": result.reply, "action": action}
 
     @app.post("/api/paco/text")
     def paco_text(
@@ -221,7 +223,11 @@ def create_app(
             raise HTTPException(status_code=503, detail="paco is not configured")
         message = str(payload.get("text") or "").strip()
         result = deps.paco.handle_text(message)
-        return {"reply": result.reply, "peek": result.peek}
+        return {
+            "reply": result.reply,
+            "peek": result.peek,
+            "action": getattr(result, "action", "") or "",
+        }
 
     @app.get("/api/paco/inbox")
     def paco_inbox(x_assistant_token: str | None = Header(default=None)) -> dict[str, Any]:

@@ -3,6 +3,16 @@ from pathlib import Path
 import pytest
 
 
+def test_stage_js_is_shared() -> None:
+    service_dir = Path(__file__).resolve().parents[1]
+    root = service_dir.parents[1]
+    left = (root / "rabbit" / "assistant" / "stage.js").read_bytes()
+    right = (root / "rabbit" / "paco" / "stage.js").read_bytes()
+    assert left == right
+    assert b"webgl" not in left
+    assert b"SPEECH_CPS" in left
+
+
 def test_creation_static_copy_matches_rabbit() -> None:
     service_dir = Path(__file__).resolve().parents[1]
     static = service_dir / "static" / "creation"
