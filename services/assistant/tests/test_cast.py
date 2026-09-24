@@ -39,6 +39,38 @@ def test_faces_have_separate_glasses_and_authored_poses() -> None:
     assert min(back_y) < min(brim_y)
 
 
+def _cells(layers: dict, name: str) -> set[tuple[int, int]]:
+    pixels = layers[name]
+    return {(pixels[i], pixels[i + 1]) for i in range(0, len(pixels), 3)}
+
+
+def _span(cells: set[tuple[int, int]]) -> tuple[int, int, int, int]:
+    xs = [x for x, _ in cells]
+    ys = [y for _, y in cells]
+    return min(xs), max(xs), min(ys), max(ys)
+
+
+def test_hat_sits_on_the_head() -> None:
+    paco = build().paco_layers()
+    head = _cells(paco, "head")
+    hair = _cells(paco, "hair")
+    brim = _cells(paco, "hat_brim")
+    crown = _cells(paco, "hat_crown")
+    band = _cells(paco, "hat_band")
+    back = _cells(paco, "hat_back")
+    worn = crown | band | brim
+    _, _, head_top, _ = _span(head)
+    brim_left, brim_right, brim_top, brim_bottom = _span(brim)
+    crown_left, crown_right, _, _ = _span(crown)
+    assert brim_bottom + 2 >= head_top
+    assert not any(y < brim_top and crown_left <= x <= crown_right for x, y in hair)
+    worn_box = _span(worn)
+    back_box = _span(back)
+    assert abs((worn_box[1] - worn_box[0]) - (back_box[1] - back_box[0])) <= 2
+    assert abs((worn_box[3] - worn_box[2]) - (back_box[3] - back_box[2])) <= 2
+    assert brim_right - brim_left < 52
+
+
 def test_pencil_does_not_cross_the_brim() -> None:
     module = build()
     paco = module.paco_layers()

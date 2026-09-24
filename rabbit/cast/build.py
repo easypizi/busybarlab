@@ -397,9 +397,34 @@ def tito_layers() -> dict[str, list[int]]:
     return layers
 
 
+def _trap(buf: list[list[int]], y0: int, y1: int, w0: int, w1: int, color: int) -> None:
+    span = y1 - y0
+    for y in range(y0, y1 + 1):
+        width = w0 + (w1 - w0) * (y - y0) // span
+        if width % 2:
+            width += 1
+        rect(buf, AXIS - width // 2, y, width, 1, color)
+
+
+def _brim(buf: list[list[int]], y: int, lift_center: int) -> None:
+    rect(buf, 29, y, 38, 3, 16)
+    rect(buf, 29, y + 3, 38, 1, 17)
+    rect(buf, 25, y + 1, 4, 3, 16)
+    rect(buf, 67, y + 1, 4, 3, 16)
+    rect(buf, 25, y + 4, 4, 1, 17)
+    rect(buf, 67, y + 4, 4, 1, 17)
+    if lift_center:
+        erase(buf, 40, y + 4 - lift_center, 16, lift_center + 1)
+
+
 def paco_layers() -> dict[str, list[int]]:
     drop = 2
-    head, hair = face_base(46, 15, 14)
+    head, _dome = face_base(46, 15, 14)
+    hair = blank()
+    rect(hair, 42, 33, 12, 3, 4)
+    rect(hair, 44, 33, 8, 1, 5)
+    sym_rect(hair, 32, 34, 4, 10, 5)
+    assert_sym(hair, "paco hair")
     body = blank()
     disc(body, AXIS, 80, 20, 14, 23)
     rect(body, 30, 68, 36, 28, 23)
@@ -417,41 +442,40 @@ def paco_layers() -> dict[str, list[int]]:
     pix(body, 48, 64, 8)
 
     hat_crown = blank()
-    disc(hat_crown, AXIS, 12, 12, 8, 16)
-    disc(hat_crown, AXIS, 10, 8, 5, 17)
+    _trap(hat_crown, 18, 30, 20, 28, 16)
+    rect(hat_crown, 44, 20, 8, 4, 17)
     assert_sym(hat_crown, "crown")
     hat_band = blank()
-    rect(hat_band, 36, 16, 24, 4, 19)
-    rect(hat_band, 36, 16, 24, 1, 17)
+    rect(hat_band, 34, 29, 28, 3, 19)
+    rect(hat_band, 34, 29, 28, 1, 17)
     assert_sym(hat_band, "band")
     hat_brim = blank()
-    disc(hat_brim, AXIS, 22, 26, 5, 16)
-    rect(hat_brim, 22, 24, 52, 2, 17)
+    _brim(hat_brim, 31, 0)
     assert_sym(hat_brim, "brim")
 
     hat_back = blank()
-    disc(hat_back, AXIS, 20, 10, 6, 16)
-    disc(hat_back, AXIS, 18, 6, 4, 17)
-    rect(hat_back, 38, 22, 20, 3, 19)
-    disc(hat_back, AXIS, 26, 16, 3, 16)
-    rect(hat_back, 34, 27, 28, 1, 17)
+    _trap(hat_back, 14, 26, 20, 28, 16)
+    rect(hat_back, 44, 16, 8, 4, 17)
+    rect(hat_back, 34, 25, 28, 3, 19)
+    rect(hat_back, 34, 25, 28, 1, 17)
+    _brim(hat_back, 27, 2)
     assert_sym(hat_back, "hat_back")
 
-    def pencil_at(x: int, y: int, w: int, h: int, tip_x: int, tip_y: int) -> list[int]:
-        buf = blank()
-        rect(buf, x, y, w, h, 22)
-        pix(buf, tip_x, tip_y, 8)
-        return layer_from(buf)
+    def tucked_pencil(buf: list[list[int]]) -> None:
+        steps = 12
+        for i in range(steps + 1):
+            x = 58 + (74 - 58) * i // steps
+            y = 29 - (29 - 20) * i // steps
+            pix(buf, x, y, 22)
+            pix(buf, x, y + 1, 22)
+        pix(buf, 74, 20, 8)
+        pix(buf, 75, 20, 8)
 
     pencil_ear = blank()
-    rect(pencil_ear, 60, 14, 16, 3, 22)
-    pix(pencil_ear, 76, 14, 8)
-    pix(pencil_ear, 76, 15, 8)
-    pix(pencil_ear, 60, 16, 2)
+    tucked_pencil(pencil_ear)
     pencil_touch = blank()
-    rect(pencil_touch, 60, 14, 16, 3, 22)
-    pix(pencil_touch, 76, 14, 8)
-    rect(pencil_touch, 70, 17, 4, 1, 1)
+    tucked_pencil(pencil_touch)
+    rect(pencil_touch, 56, 28, 4, 2, 1)
 
     bite = blank()
     rect(bite, 50, 57, 12, 2, 22)
