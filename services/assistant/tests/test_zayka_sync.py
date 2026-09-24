@@ -1,5 +1,8 @@
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
+from toy_lair_assistant.paco import PacoAgent
 from toy_lair_assistant.settings import Settings
 from toy_lair_assistant.zayka_sync import attach_zayka, sync
 
@@ -91,6 +94,33 @@ def test_attach_zayka_sets_agent_index(tmp_path: Path) -> None:
     assert Deps.zayka is not None
     assert Deps.agent.zayka is Deps.zayka
     assert Deps.zayka.read("Home.md") == "hello\n"
+
+
+def test_attach_zayka_builds_paco_after_clone(tmp_path: Path) -> None:
+    dest = tmp_path / "zayka"
+    dest.mkdir()
+    (dest / "Home.md").write_text("hello\n", encoding="utf-8")
+
+    class Clock:
+        def now(self) -> datetime:
+            return datetime(2026, 9, 23, 12, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+
+    class Deps:
+        settings = Settings(
+            zayka_dir=str(dest),
+            openai_api_key="test-key",
+            openai_model="gpt-4.1-mini",
+            timezone="America/Los_Angeles",
+            zayka_sync_enabled=False,
+        )
+        agent = None
+        zayka = None
+        paco = None
+        clock = Clock()
+        store = None
+
+    attach_zayka(Deps, sync_fn=lambda settings: dest)
+    assert isinstance(Deps.paco, PacoAgent)
 
 
 def test_settings_skip_auto_sync_under_pytest() -> None:

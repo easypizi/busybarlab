@@ -51,6 +51,31 @@ def attach_zayka(deps: Any, sync_fn: Callable[[Settings], Path | None] | None = 
     deps.zayka = index
     if getattr(deps, "agent", None) is not None:
         deps.agent.zayka = index
+    _attach_paco(deps, Path(path))
+
+
+def _attach_paco(deps: Any, path: Path) -> None:
+    if getattr(deps, "paco", None) is not None:
+        return
+    settings = deps.settings
+    if not settings.openai_api_key or getattr(deps, "clock", None) is None:
+        return
+    from zoneinfo import ZoneInfo
+
+    from toy_lair_assistant.llm import OpenAILLM
+    from toy_lair_assistant.paco import PacoAgent
+    from toy_lair_assistant.paco_vault import PacoVault
+    from toy_lair_assistant.zayka_write import ZaykaWrite, git_runner
+
+    zone = ZoneInfo(settings.timezone)
+    root = path.expanduser()
+    deps.paco = PacoAgent(
+        llm=OpenAILLM(settings.openai_api_key, settings.openai_model),
+        vault=PacoVault(root, zone),
+        writer=ZaykaWrite(root, git_runner, zone),
+        now=deps.clock.now,
+        store=getattr(deps, "store", None),
+    )
 
 
 def main() -> int:

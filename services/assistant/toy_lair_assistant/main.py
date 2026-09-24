@@ -216,6 +216,8 @@ def create_app(
     ) -> dict[str, Any]:
         _guard(x_assistant_token)
         if deps.paco is None:
+            attach_zayka(deps)
+        if deps.paco is None:
             raise HTTPException(status_code=503, detail="paco is not configured")
         message = str(payload.get("text") or "").strip()
         result = deps.paco.handle_text(message)
@@ -224,6 +226,8 @@ def create_app(
     @app.get("/api/paco/inbox")
     def paco_inbox(x_assistant_token: str | None = Header(default=None)) -> dict[str, Any]:
         _guard(x_assistant_token)
+        if deps.paco is None:
+            attach_zayka(deps)
         if deps.paco is None:
             raise HTTPException(status_code=503, detail="paco is not configured")
         return deps.paco.inbox_payload()
