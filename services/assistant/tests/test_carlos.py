@@ -95,7 +95,23 @@ def test_fenced_json_parses() -> None:
     assert "back" not in result.entry
 
 
-def test_a_session_report_is_not_a_skip_when_the_model_is_timid() -> None:
+def test_an_off_plan_run_is_kept_as_a_note() -> None:
+    reply = json.dumps(
+        {
+            "status": "done",
+            "items": [{"name": "бег", "actual": "5 км, темп 6:45"}],
+            "note": "5 км, темп 6:45",
+        }
+    )
+    result = CarlosAgent(ScriptedLLM(reply), MemoryStore()).log(
+        "Я пробежал пять километров на темпе 6:45",
+        {"date": "2026-09-24", "sessionId": "strength-b", "title": "Strength B", "exercises": ["1. Гоблет-приседания"]},
+    )
+    assert result.entry["status"] == "done"
+    assert result.entry["items"] == []
+    assert result.entry["note"] == "5 км, темп 6:45"
+    assert result.line == "сделано · 5 км, темп 6:45"
+    assert result.reply == "Записал: 5 км, темп 6:45."
     reply = json.dumps({"status": "skipped", "items": []})
     result = CarlosAgent(ScriptedLLM(reply), MemoryStore()).log(
         "Гоблет четыре по двенадцать, нормально",

@@ -32,16 +32,25 @@ class CarlosResult:
 
 
 def entry_line(entry: dict[str, Any]) -> str:
-    return STATUS_RU.get(str(entry.get("status") or ""), "")
+    status = STATUS_RU.get(str(entry.get("status") or ""), "")
+    note = str(entry.get("note") or "").strip()
+    if status and note:
+        return f"{status} · {note}"
+    return status
 
 
 def spoken(entry: dict[str, Any]) -> str:
     status = entry.get("status")
+    note = str(entry.get("note") or "").strip()
     if status == "skipped":
-        return "Отметил пропуск."
-    if status == "partial":
-        return "Записал частично."
-    return "Записал."
+        lead = "Отметил пропуск."
+    elif status == "partial":
+        lead = "Записал частично."
+    else:
+        lead = "Записал."
+    if note and status != "skipped":
+        return f"{lead[:-1]}: {note}."
+    return lead
 
 
 def parse_log_json(text: str) -> dict[str, Any] | None:
@@ -117,6 +126,13 @@ def soften_status(status: str, text: str) -> str:
     return "done"
 
 
+def _clip_note(note: str) -> str:
+    text = " ".join(note.split())
+    if len(text) > 120:
+        return text[:117].rstrip() + "..."
+    return text
+
+
 def validate_entry(data: dict[str, Any], text: str, card: dict[str, Any]) -> dict[str, Any] | None:
     status = data.get("status")
     if status not in STATUSES:
@@ -124,6 +140,7 @@ def validate_entry(data: dict[str, Any], text: str, card: dict[str, Any]) -> dic
     status = soften_status(status, text)
     allowed = _names(card)
     items: list[dict[str, Any]] = []
+    extra: list[str] = []
     raw_items = data.get("items")
     if raw_items is None:
         raw_items = []
@@ -132,20 +149,30 @@ def validate_entry(data: dict[str, Any], text: str, card: dict[str, Any]) -> dic
     for item in raw_items:
         if not isinstance(item, dict):
             continue
-        name = match_name(str(item.get("name") or ""), allowed)
-        if name is None:
-            continue
+        spoken_name = str(item.get("name") or "").strip()
         actual = _actual(item.get("actual"))
+        name = match_name(spoken_name, allowed)
+        if name is None:
+            if spoken_name and actual is not None:
+                extra.append(f"{spoken_name} {actual}")
+            continue
         if actual is None:
             continue
         items.append({"name": name, "actual": actual})
-    return {
+    note = data.get("note")
+    note = _clip_note(note) if isinstance(note, str) else ""
+    if not note and extra:
+        note = _clip_note(", ".join(extra))
+    entry = {
         "date": str(card.get("date") or ""),
         "sessionId": str(card.get("sessionId") or ""),
         "status": status,
         "items": items,
         "raw": text,
     }
+    if note:
+        entry["note"] = note
+    return entry
 
 
 def _prompt(text: str, card: dict[str, Any]) -> str:
@@ -157,7 +184,7 @@ def _prompt(text: str, card: dict[str, Any]) -> str:
     }
     return (
         "You turn one workout dictation into JSON. Reply with one JSON object and no other text.\n"
-        "Keys only: date, sessionId, status, items, raw.\n"
+        "Keys only: date, sessionId, status, items, note, raw.\n"
         "Copy date and sessionId from the card.\n"
         "status is done, partial, or skipped.\n"
         "done: they trained. This includes норм, готово, было, сходил, потренировался, отзанимался, and a list of what they did. Numbers are optional.\n"
@@ -167,6 +194,7 @@ def _prompt(text: str, card: dict[str, Any]) -> str:
         "items lists only exercises named on the card, and only numbers spoken aloud.\n"
         'Each item is {"name":"...","actual":"..."}.\n'
         "Do not invent reps. Do not add an exercise that is not on the card.\n"
+        "If they did something else instead of the card, or in addition to it, put that in note as one short line. Example: \"5 км, темп 6:45\". Use an empty string when they only did the card.\n"
         "A session report with no numbers is still done, with items [].\n"
         "raw is the dictation unchanged.\n"
         "Do not change the day's plan.\n"

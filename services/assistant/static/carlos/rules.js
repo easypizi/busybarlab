@@ -114,7 +114,10 @@ var CARLOS_RULES = (function () {
 
   function logLine(entry) {
     if (!entry) return "";
-    return STATUS[entry.status] || "";
+    var status = STATUS[entry.status] || "";
+    var note = entry.note ? String(entry.note) : "";
+    if (status && note) return status + " · " + note;
+    return status;
   }
 
   function wheelStep(view, dir) {
