@@ -257,4 +257,6 @@ def test_stage_reads_attach_and_clock() -> None:
     assert "cap_back" in text
     assert "goatee" in text
     assert "onIdle" in text
+    assert "pause" in text
+    assert "resume" in text
     assert "webgl" not in text

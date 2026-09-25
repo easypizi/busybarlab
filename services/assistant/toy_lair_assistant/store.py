@@ -118,6 +118,13 @@ class MemoryStore:
                 return True
         return False
 
+    def workout_logs_between(self, start: str, end: str) -> list[dict[str, Any]]:
+        return [
+            row["payload"]
+            for row in self.workout_logs
+            if isinstance(row.get("payload"), dict) and start <= row["log_date"] <= end
+        ]
+
 
 class SqliteStore:
     def __init__(self, path: str = ":memory:") -> None:
@@ -303,6 +310,20 @@ class SqliteStore:
         )
         self.conn.commit()
         return True
+
+    def workout_logs_between(self, start: str, end: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """SELECT payload FROM workout_logs
+               WHERE log_date >= ? AND log_date <= ?
+               ORDER BY id ASC""",
+            (start, end),
+        ).fetchall()
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            data = json.loads(row[0])
+            if isinstance(data, dict):
+                out.append(data)
+        return out
 
 
 def open_store(database_url: str) -> Any:
@@ -533,6 +554,22 @@ class PostgresStore:
             )
         self.conn.commit()
         return True
+
+    def workout_logs_between(self, start: str, end: str) -> list[dict[str, Any]]:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """SELECT payload FROM workout_logs
+                   WHERE log_date >= %s AND log_date <= %s
+                   ORDER BY id ASC""",
+                (start, end),
+            )
+            rows = cur.fetchall()
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            data = json.loads(row[0])
+            if isinstance(data, dict):
+                out.append(data)
+        return out
 
 
 def _draft_fresh(updated_at: datetime | str, now: datetime) -> bool:

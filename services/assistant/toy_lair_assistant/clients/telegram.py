@@ -18,7 +18,7 @@ from toy_lair_assistant.agent import invoke_agent
 
 log = logging.getLogger(__name__)
 
-_VOICE_LABELS = {"tito": "Tito", "paco": "Paco"}
+_VOICE_LABELS = {"tito": "Tito", "paco": "Paco", "carlos": "Carlos"}
 ADDRESS_RE = re.compile(
     r"^(tito|тито|paco|пако)[\s,:!]+(.+)$",
     re.IGNORECASE | re.DOTALL,

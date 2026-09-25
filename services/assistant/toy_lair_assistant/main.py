@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
@@ -13,8 +14,9 @@ from fastapi.staticfiles import StaticFiles
 
 from toy_lair_assistant.agent import invoke_agent
 from toy_lair_assistant.auth import require_token
-from toy_lair_assistant.clock import Clock
 from toy_lair_assistant.carlos import entry_line
+from toy_lair_assistant.clock import Clock
+from toy_lair_assistant.openai_alert import OPENAI_REPLY, openai_failure
 from toy_lair_assistant.install_qr import (
     carlos_icon_url,
     carlos_page_url,
@@ -97,9 +99,23 @@ def create_app(
 
             def _tick() -> None:
                 scheduler = getattr(app.state, "scheduler", None)
-                if scheduler is None:
-                    return
-                scheduler.tick(deps.clock.now())
+                if scheduler is not None:
+                    scheduler.tick(deps.clock.now())
+                if (
+                    deps.store is not None
+                    and deps.notify is not None
+                    and hasattr(deps.notify, "voice")
+                ):
+                    from toy_lair_assistant.carlos_week import maybe_send
+                    from toy_lair_assistant.paths import carlos_dir
+
+                    maybe_send(
+                        deps.clock.now(),
+                        deps.store,
+                        deps.notify.voice("carlos").send_text,
+                        carlos_dir() / "days.json",
+                        deps.settings.carlos_week_hour,
+                    )
 
             tasks.append(
                 asyncio.create_task(
@@ -220,9 +236,14 @@ def create_app(
         if deps.agent is None:
             raise HTTPException(status_code=503, detail="agent is not configured")
         message = str(payload.get("text") or "").strip()
-        result = invoke_agent(
-            deps.agent, message, channel="r1", notify=_signed(deps.notify, "tito")
-        )
+        try:
+            result = invoke_agent(
+                deps.agent, message, channel="r1", notify=_signed(deps.notify, "tito")
+            )
+        except httpx.HTTPStatusError as exc:
+            if not openai_failure(exc.response.status_code):
+                raise
+            return {"reply": OPENAI_REPLY, "action": ""}
         used = set(getattr(result, "used_tools", []) or [])
         action = "task" if used & {"todoist_add", "plan_apply"} else ""
         return {"reply": result.reply, "action": action}
@@ -238,7 +259,12 @@ def create_app(
         if deps.paco is None:
             raise HTTPException(status_code=503, detail="paco is not configured")
         message = str(payload.get("text") or "").strip()
-        result = deps.paco.handle_text(message)
+        try:
+            result = deps.paco.handle_text(message)
+        except httpx.HTTPStatusError as exc:
+            if not openai_failure(exc.response.status_code):
+                raise
+            return {"reply": OPENAI_REPLY, "peek": {"kind": "inbox", "items": []}, "action": ""}
         return {
             "reply": result.reply,
             "peek": result.peek,
@@ -280,7 +306,12 @@ def create_app(
         if deps.carlos is None:
             raise HTTPException(status_code=503, detail="carlos is not configured")
         text, card = _carlos_card(payload)
-        result = deps.carlos.log(text, card)
+        try:
+            result = deps.carlos.log(text, card)
+        except httpx.HTTPStatusError as exc:
+            if not openai_failure(exc.response.status_code):
+                raise
+            return {"ok": False, "reply": "", "entry": None, "line": "", "action": ""}
         return {
             "ok": result.ok,
             "reply": result.reply,

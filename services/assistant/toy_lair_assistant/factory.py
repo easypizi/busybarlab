@@ -14,6 +14,7 @@ from toy_lair_assistant.clients.todoist import TodoistClient
 from toy_lair_assistant.clock import Clock
 from toy_lair_assistant.llm import EchoLLM, OpenAILLM
 from toy_lair_assistant.carlos import CarlosAgent
+from toy_lair_assistant.openai_alert import make_openai_alerter
 from toy_lair_assistant.paco import PacoAgent
 from toy_lair_assistant.paco_vault import PacoVault
 from toy_lair_assistant.zayka_write import ZaykaWrite, git_runner
@@ -118,6 +119,15 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         if settings.openai_api_key
         else SilentSpeech()
     )
+    alerter = make_openai_alerter(
+        store,
+        notify.send_text if notify else (lambda text: None),
+        clock.now,
+    )
+    if hasattr(llm, "on_api_error"):
+        llm.on_api_error = alerter
+    if hasattr(speech, "on_api_error"):
+        speech.on_api_error = alerter
     paco = None
     paco_root = settings.zayka_path()
     if paco_root and Path(paco_root).expanduser().exists() and settings.openai_api_key:

@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     timezone: str = "America/Los_Angeles"
     reminder_lead_minutes: int = 15
     briefing_hour: int = 8
+    carlos_week_hour: int = 20
     public_base_url: str = ""
     creation_public_url: str = ""
     tick_interval_seconds: float = 60

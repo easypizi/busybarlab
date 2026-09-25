@@ -7,7 +7,6 @@
   var rules = window.CARLOS_RULES;
   var token = "";
   var state = {};
-  var catalog = null;
   var byDate = {};
   var cursor = rules.CYCLE_START;
   var choiceIndex = 0;
@@ -20,7 +19,10 @@
   var saveError = false;
   var sttWatch = null;
   var pairTimer = null;
-  var spineStop = "";
+  var savedBlob = "";
+  var pullTimer = null;
+  var pullAbort = null;
+  var LOG_CAP = 14;
 
   function $(id) {
     return document.getElementById(id);
@@ -35,10 +37,13 @@
       if (!listening) showVoice(false);
     },
   });
+  stage.pause();
 
   function showVoice(on) {
     voiceOpen = !!on;
     document.body.classList.toggle("voice", voiceOpen);
+    if (voiceOpen) stage.resume();
+    else stage.pause();
   }
 
   function headers() {
@@ -202,11 +207,29 @@
         var data = JSON.parse(raw);
         if (data && typeof data === "object") state = data;
       } catch (err) {}
+      trimLogs();
+      savedBlob = JSON.stringify(state);
     });
   }
 
+  function trimLogs() {
+    var keys = [];
+    var key;
+    for (key in state) {
+      if (Object.prototype.hasOwnProperty.call(state, key) && key.indexOf("log:") === 0) {
+        keys.push(key);
+      }
+    }
+    keys.sort();
+    while (keys.length > LOG_CAP) delete state[keys.shift()];
+  }
+
   function saveState() {
-    return writeKey(STATE_KEY, JSON.stringify(state));
+    trimLogs();
+    var blob = JSON.stringify(state);
+    if (blob === savedBlob) return Promise.resolve();
+    savedBlob = blob;
+    return writeKey(STATE_KEY, blob);
   }
 
   function showPair(code) {
@@ -292,7 +315,6 @@
       if (option.cues) row.appendChild(el("p", "ex-cues", option.cues));
       card.appendChild(row);
     });
-    if (spineStop) card.appendChild(el("p", "stop", spineStop));
     var line = rules.logLine(state["log:" + day.date]);
     if (line) card.appendChild(el("p", "log", line));
     if (saveError) card.appendChild(el("p", "miss", "запись не сохранилась"));
@@ -331,7 +353,6 @@
         card.appendChild(row);
       });
     }
-    if (spineStop) card.appendChild(el("p", "stop", spineStop));
     var line = rules.logLine(state["log:" + day.date]);
     if (line) card.appendChild(el("p", "log", line));
     if (saveError) card.appendChild(el("p", "miss", "запись не сохранилась"));
@@ -398,19 +419,32 @@
 
   function pullLog(date) {
     if (!token || !date) return;
-    fetch(API + "/api/carlos/log?date=" + encodeURIComponent(date), { headers: headers() })
-      .then(function (res) {
-        if (res.status === 401) return null;
-        if (!res.ok) return null;
-        return res.json();
-      })
-      .then(function (data) {
-        if (!data || !data.entry) return;
-        state["log:" + date] = data.entry;
-        saveState();
-        if (cursor === date) render();
-      })
-      .catch(function () {});
+    if (pullTimer) clearTimeout(pullTimer);
+    pullTimer = setTimeout(function () {
+      pullTimer = null;
+      if (pullAbort) pullAbort.abort();
+      var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      pullAbort = controller;
+      var wanted = date;
+      var opts = { headers: headers() };
+      if (controller) opts.signal = controller.signal;
+      fetch(API + "/api/carlos/log?date=" + encodeURIComponent(wanted), opts)
+        .then(function (res) {
+          if (res.status === 401) return null;
+          if (!res.ok) return null;
+          return res.json();
+        })
+        .then(function (data) {
+          if (cursor !== wanted || !data || !data.entry) return;
+          var key = "log:" + wanted;
+          var next = JSON.stringify(data.entry);
+          if (JSON.stringify(state[key] || null) === next) return;
+          state[key] = data.entry;
+          saveState();
+          render();
+        })
+        .catch(function () {});
+    }, 250);
   }
 
   function loadDays() {
@@ -420,8 +454,6 @@
         return res.json();
       })
       .then(function (data) {
-        catalog = data;
-        spineStop = (data.spine && data.spine.stop) || "";
         byDate = {};
         (data.days || []).forEach(function (day) { byDate[day.date] = day; });
         var today = rules.todayISO();
@@ -553,37 +585,81 @@
     sendText(text);
   };
 
-  function onWheel(dir) {
-    if (listening) return;
-    if (voiceOpen) {
-      var reply = $("dialog");
-      if (reply.scrollHeight > reply.clientHeight + 4) reply.scrollTop += dir * 16;
-      return;
+  function atEdge(node, dir) {
+    if (!node || node.scrollHeight <= node.clientHeight + 2) return true;
+    if (dir > 0) return node.scrollTop + node.clientHeight >= node.scrollHeight - 2;
+    return node.scrollTop <= 2;
+  }
+
+  function revealSelected() {
+    var card = $("card");
+    var chosen = card.querySelector(".selected");
+    if (!chosen) return;
+    var top = card.scrollTop;
+    var bottom = top + card.clientHeight;
+    if (chosen.offsetTop < top) card.scrollTop = chosen.offsetTop;
+    else if (chosen.offsetTop + chosen.offsetHeight > bottom) {
+      card.scrollTop = chosen.offsetTop + chosen.offsetHeight - card.clientHeight;
     }
-    if (helpOpen) {
-      $("help").scrollTop += dir * 40;
-      return;
-    }
-    if (rules.screenFor(rules.todayISO()) !== "card") return;
-    var day = byDate[cursor];
-    if (day && rules.needsChoice(day, state)) {
-      var count = rules.choiceOptions(day).length || 1;
-      choiceIndex = (choiceIndex + dir + count) % count;
-      render();
-      return;
-    }
-    if (racePick) {
-      raceSide = raceSide === "wed" ? "sat" : "wed";
-      render();
-      return;
-    }
+  }
+
+  function shiftDay(dir) {
     var next = rules.shiftCursor(cursor, dir);
     if (next === cursor) return;
     cursor = next;
     choiceIndex = 0;
+    racePick = false;
     saveError = false;
     render();
+    var card = $("card");
+    card.scrollTop = dir < 0 ? card.scrollHeight : 0;
     pullLog(cursor);
+  }
+
+  function onWheel(dir) {
+    if (listening) return;
+    if (voiceOpen) {
+      var reply = $("dialog");
+      if (!atEdge(reply, dir)) reply.scrollTop += dir * 16;
+      return;
+    }
+    if (rules.screenFor(rules.todayISO()) !== "card") return;
+    var view = { mode: "card", atEdge: atEdge($("card"), dir), index: 0, count: 0, raceSide: raceSide };
+    var day = byDate[cursor];
+    if (helpOpen) {
+      view.mode = "help";
+      view.atEdge = atEdge($("help"), dir);
+    } else if (day && rules.needsChoice(day, state)) {
+      view.mode = "choice";
+      view.index = choiceIndex;
+      view.count = rules.choiceOptions(day).length || 1;
+    } else if (racePick) {
+      view.mode = "race";
+    }
+    var step = rules.wheelStep(view, dir);
+    if (step.action === "scroll") {
+      var box = helpOpen ? $("help") : voiceOpen ? $("dialog") : $("card");
+      box.scrollTop += dir * 40;
+      return;
+    }
+    if (step.action === "choice") {
+      choiceIndex = step.index;
+      render();
+      revealSelected();
+      return;
+    }
+    if (step.action === "race") {
+      raceSide = step.raceSide;
+      render();
+      return;
+    }
+    if (step.action === "close") {
+      if (helpOpen) helpOpen = false;
+      if (racePick) racePick = false;
+      render();
+      return;
+    }
+    shiftDay(dir);
   }
 
   $("card").addEventListener("click", function (ev) {

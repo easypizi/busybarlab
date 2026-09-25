@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
 STATUSES = {"done", "partial", "skipped"}
-BACKS = {"ok", "sore", "stop"}
 STATUS_RU = {"done": "сделано", "partial": "частично", "skipped": "пропуск"}
-BACK_RU = {"ok": "спина в порядке", "sore": "спина ноет", "stop": "стоп и откат"}
 
 
 @dataclass
@@ -21,28 +20,16 @@ class CarlosResult:
 
 
 def entry_line(entry: dict[str, Any]) -> str:
-    status = STATUS_RU.get(str(entry.get("status") or ""), "")
-    back = BACK_RU.get(str(entry.get("back") or ""), "")
-    if status and back:
-        return f"{status} · {back}"
-    return status
+    return STATUS_RU.get(str(entry.get("status") or ""), "")
 
 
 def spoken(entry: dict[str, Any]) -> str:
     status = entry.get("status")
-    back = entry.get("back")
     if status == "skipped":
-        lead = "Отметил пропуск."
-    elif status == "partial":
-        lead = "Записал частично."
-    else:
-        lead = "Записал."
-    tail = {
-        "ok": " Спина в порядке.",
-        "sore": " Спина ноет.",
-        "stop": " Стоп и откат.",
-    }.get(back or "", "")
-    return lead + tail
+        return "Отметил пропуск."
+    if status == "partial":
+        return "Записал частично."
+    return "Записал."
 
 
 def parse_log_json(text: str) -> dict[str, Any] | None:
@@ -88,16 +75,28 @@ def _names(card: dict[str, Any]) -> list[str]:
     return names
 
 
+def normalize_name(name: str) -> str:
+    text = (name or "").strip().lower().replace("ё", "е")
+    text = re.sub(r"^\d+\.\s*", "", text)
+    text = re.sub(r"[^0-9a-zа-я]+", " ", text)
+    return " ".join(text.split())
+
+
+def match_name(spoken: str, names: list[str]) -> str | None:
+    key = normalize_name(spoken)
+    if not key:
+        return None
+    for name in names:
+        if normalize_name(name) == key:
+            return name
+    return None
+
+
 def validate_entry(data: dict[str, Any], text: str, card: dict[str, Any]) -> dict[str, Any] | None:
     status = data.get("status")
     if status not in STATUSES:
         return None
-    back = data.get("back")
-    if back in ("", "null"):
-        back = None
-    if back is not None and back not in BACKS:
-        return None
-    allowed = set(_names(card))
+    allowed = _names(card)
     items: list[dict[str, Any]] = []
     raw_items = data.get("items")
     if raw_items is None:
@@ -107,8 +106,8 @@ def validate_entry(data: dict[str, Any], text: str, card: dict[str, Any]) -> dic
     for item in raw_items:
         if not isinstance(item, dict):
             continue
-        name = str(item.get("name") or "").strip()
-        if name not in allowed:
+        name = match_name(str(item.get("name") or ""), allowed)
+        if name is None:
             continue
         actual = _actual(item.get("actual"))
         if actual is None:
@@ -118,7 +117,6 @@ def validate_entry(data: dict[str, Any], text: str, card: dict[str, Any]) -> dic
         "date": str(card.get("date") or ""),
         "sessionId": str(card.get("sessionId") or ""),
         "status": status,
-        "back": back,
         "items": items,
         "raw": text,
     }
@@ -133,15 +131,14 @@ def _prompt(text: str, card: dict[str, Any]) -> str:
     }
     return (
         "You turn one workout dictation into JSON. Reply with one JSON object and no other text.\n"
-        "Keys only: date, sessionId, status, back, items, raw.\n"
+        "Keys only: date, sessionId, status, items, raw.\n"
         "Copy date and sessionId from the card.\n"
         "status is done, partial, or skipped.\n"
-        "back is ok, sore, stop, or null. Use null when the back was not mentioned.\n"
         "items lists only exercises named on the card, and only numbers spoken aloud.\n"
         'Each item is {"name":"...","actual":"..."}.\n'
         "Do not invent reps. Do not add an exercise that is not on the card.\n"
         "raw is the dictation unchanged.\n"
-        'The phrase "Сделал, спина в порядке" is status done, back ok, items [].\n'
+        'The phrase "Сделал" is status done and items [].\n'
         "Do not change the day's plan.\n"
         f"Card: {json.dumps(brief, ensure_ascii=False)}\n"
         f"Dictation: {text}"

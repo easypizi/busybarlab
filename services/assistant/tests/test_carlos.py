@@ -30,31 +30,32 @@ def _card() -> dict:
     }
 
 
-def test_done_with_a_calm_back_keeps_items_empty() -> None:
+def test_done_phrase_keeps_items_empty() -> None:
     store = MemoryStore()
     reply = json.dumps(
         {
             "date": "1999-01-01",
             "sessionId": "other",
             "status": "done",
-            "back": "ok",
             "items": [],
             "raw": "rewritten",
         }
     )
     llm = ScriptedLLM(reply)
-    result = CarlosAgent(llm, store).log("Сделал, спина в порядке", _card())
+    result = CarlosAgent(llm, store).log("Сделал", _card())
     assert result.ok is True
     assert result.entry["status"] == "done"
-    assert result.entry["back"] == "ok"
+    assert "back" not in result.entry
     assert result.entry["items"] == []
-    assert result.entry["raw"] == "Сделал, спина в порядке"
+    assert result.entry["raw"] == "Сделал"
     assert result.entry["date"] == "2026-09-22"
     assert result.entry["sessionId"] == "module-strike"
-    assert result.line == "сделано · спина в порядке"
+    assert result.line == "сделано"
+    assert result.reply == "Записал."
     assert store.last_workout_log("2026-09-22") == result.entry
     prompt = llm.seen[0][-1]["content"]
     assert "Do not invent reps" in prompt
+    assert "back is" not in prompt
 
 
 def test_off_card_exercise_is_dropped() -> None:
@@ -62,18 +63,19 @@ def test_off_card_exercise_is_dropped() -> None:
     reply = json.dumps(
         {
             "status": "partial",
-            "back": None,
             "items": [
                 {"name": "Становая", "actual": "100"},
-                {"name": "Блок 1. Strike", "actual": "60 мин"},
+                {"name": "гоблет приседания", "actual": "4x12"},
                 {"name": "Блок 1. Strike", "actual": ""},
             ],
         }
     )
-    result = CarlosAgent(ScriptedLLM(reply), store).log("мешок 60 минут", _card())
+    card = _card()
+    card["exercises"] = ["1. Гоблет-приседания", "Блок 1. Strike"]
+    result = CarlosAgent(ScriptedLLM(reply), store).log("гоблет четыре по двенадцать", card)
     assert result.ok is True
-    assert result.entry["items"] == [{"name": "Блок 1. Strike", "actual": "60 мин"}]
-    assert result.entry["back"] is None
+    assert result.entry["items"] == [{"name": "1. Гоблет-приседания", "actual": "4x12"}]
+    assert "back" not in result.entry
 
 
 def test_broken_json_writes_nothing() -> None:
@@ -85,27 +87,28 @@ def test_broken_json_writes_nothing() -> None:
 
 
 def test_fenced_json_parses() -> None:
-    reply = "```json\n" + json.dumps({"status": "skipped", "back": "stop", "items": []}) + "\n```"
-    result = CarlosAgent(ScriptedLLM(reply), MemoryStore()).log("пропуск, спина стоп", _card())
+    reply = "```json\n" + json.dumps({"status": "skipped", "items": []}) + "\n```"
+    result = CarlosAgent(ScriptedLLM(reply), MemoryStore()).log("пропуск", _card())
     assert result.ok is True
     assert result.entry["status"] == "skipped"
-    assert result.entry["back"] == "stop"
+    assert result.reply == "Отметил пропуск."
+    assert "back" not in result.entry
 
 
 def test_correct_replaces_the_last_row_for_that_date() -> None:
     store = MemoryStore()
     agent = CarlosAgent(
-        ScriptedLLM(json.dumps({"status": "done", "back": "ok", "items": []})),
+        ScriptedLLM(json.dumps({"status": "done", "items": []})),
         store,
     )
     agent.log("сделал", _card())
-    agent.llm = ScriptedLLM(json.dumps({"status": "partial", "back": "sore", "items": []}))
-    agent.log("исправь, спина ноет", _card())
+    agent.llm = ScriptedLLM(json.dumps({"status": "partial", "items": []}))
+    agent.log("исправь, частично", _card())
     assert len(store.workout_logs) == 1
     last = store.last_workout_log("2026-09-22")
     assert last["status"] == "partial"
-    assert last["back"] == "sore"
-    assert last["raw"] == "исправь, спина ноет"
+    assert "back" not in last
+    assert last["raw"] == "исправь, частично"
 
 
 def test_days_file_matches_the_cycle() -> None:
@@ -120,6 +123,8 @@ def test_days_file_matches_the_cycle() -> None:
     assert fridays
     assert all(day["choice"]["required"] for day in fridays)
     assert {day["weekday"] for day in days if day["raceSlot"]} == {"wed", "sat"}
+    assert "videos" not in json.dumps(data)
+    assert "spine" not in data
     help_sections = json.loads((ROOT / "rabbit" / "carlos" / "help.json").read_text(encoding="utf-8"))
     assert [section["title"] for section in help_sections] == [
         "Спина",
@@ -164,8 +169,20 @@ if (R.exerciseNames(flex, chosen).join() !== "Лук") throw new Error("names");
 var view = R.present(sat, satRace);
 if (view.raceText !== R.RACE_TEXT) throw new Error("race text");
 if (view.names.length !== 0) throw new Error("race names");
-if (R.logLine({status:"done", back:"ok"}) !== "сделано · спина в порядке") throw new Error("line");
-if (R.logLine({status:"done", back:null}) !== "сделано") throw new Error("line bare");
+if (R.logLine({status:"done", back:"ok"}) !== "сделано") throw new Error("line");
+if (R.logLine({status:"partial"}) !== "частично") throw new Error("line partial");
+var lastFlex = R.wheelStep({mode:"choice", index:3, count:4, atEdge:true, raceSide:"wed"}, 1);
+if (lastFlex.action !== "date") throw new Error("flex forward");
+var firstFlex = R.wheelStep({mode:"choice", index:0, count:4, atEdge:true, raceSide:"wed"}, -1);
+if (firstFlex.action !== "date") throw new Error("flex back");
+var midFlex = R.wheelStep({mode:"choice", index:0, count:4, atEdge:true, raceSide:"wed"}, 1);
+if (midFlex.action !== "choice" || midFlex.index !== 1) throw new Error("flex step");
+var raceOut = R.wheelStep({mode:"race", index:0, count:0, atEdge:true, raceSide:"sat"}, 1);
+if (raceOut.action !== "close") throw new Error("race out");
+var helpOut = R.wheelStep({mode:"help", index:0, count:0, atEdge:true, raceSide:"wed"}, 1);
+if (helpOut.action !== "close") throw new Error("help out");
+var helpScroll = R.wheelStep({mode:"help", index:0, count:0, atEdge:false, raceSide:"wed"}, 1);
+if (helpScroll.action !== "scroll") throw new Error("help scroll");
 """
     path = tmp_path / "rules-check.js"
     path.write_text(rules + "\n" + check, encoding="utf-8")
@@ -196,3 +213,58 @@ def test_factory_builds_carlos_without_todoist(monkeypatch) -> None:
     )
     assert created["llm"] is not None
     assert created["store"] is not None
+
+
+def test_week_summary_counts_logged_days() -> None:
+    from datetime import date, timedelta
+
+    from toy_lair_assistant.carlos_week import render_week
+
+    monday = date(2026, 9, 21)
+    names = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    days = []
+    for offset, weekday in enumerate(names):
+        days.append(
+            {
+                "date": (monday + timedelta(days=offset)).isoformat(),
+                "week": 1,
+                "block": "strike",
+                "weekday": weekday,
+                "title": "Day " + weekday,
+                "deload": False,
+            }
+        )
+    nxt = monday + timedelta(days=7)
+    for offset, weekday in enumerate(names):
+        days.append(
+            {
+                "date": (nxt + timedelta(days=offset)).isoformat(),
+                "week": 2,
+                "block": "strike",
+                "weekday": weekday,
+                "title": "Next " + weekday,
+                "deload": True,
+            }
+        )
+    logs = [{"date": "2026-09-22", "status": "done"}, {"date": "2026-09-22", "status": "partial"}]
+    text = render_week(days, logs, monday)
+    assert "Неделя 1, strike." in text
+    assert "Записано 1 из 7." in text
+    empty = text.split("Пусто: ", 1)[1].split(".", 1)[0]
+    assert "вт" not in empty
+    assert "Разгрузка." in text
+
+
+def test_openai_alerter_sends_once_per_day() -> None:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from toy_lair_assistant.openai_alert import make_openai_alerter
+
+    sent: list[str] = []
+    store = MemoryStore()
+    now = datetime(2026, 9, 27, 12, tzinfo=ZoneInfo("America/Los_Angeles"))
+    alert = make_openai_alerter(store, sent.append, lambda: now)
+    alert(429, "insufficient_quota")
+    alert(429, "insufficient_quota")
+    assert sent == ["OpenAI is refusing requests (429 insufficient_quota). Check the balance."]

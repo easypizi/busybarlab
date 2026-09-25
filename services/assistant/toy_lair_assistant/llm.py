@@ -251,6 +251,7 @@ class OpenAILLM:
         self.api_key = api_key
         self.model = model
         self.http = http or httpx.Client(timeout=60)
+        self.on_api_error = None
 
     def complete(
         self,
@@ -271,7 +272,7 @@ class OpenAILLM:
             headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
             json=body,
         )
-        response.raise_for_status()
+        self._raise(response)
         message = response.json()["choices"][0]["message"]
         calls: list[ToolCall] = []
         for index, raw in enumerate(message.get("tool_calls") or []):
@@ -286,6 +287,17 @@ class OpenAILLM:
                 )
             )
         return AgentResult(reply=str(message.get("content") or "").strip(), tool_calls=calls)
+
+    def _raise(self, response: httpx.Response) -> None:
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            if self.on_api_error is not None and (status in (401, 429) or status >= 500):
+                from toy_lair_assistant.openai_alert import openai_detail
+
+                self.on_api_error(status, openai_detail(exc.response))
+            raise
 
 
 class EchoLLM:

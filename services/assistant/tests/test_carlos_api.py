@@ -71,7 +71,7 @@ def test_carlos_log_and_read() -> None:
     assert saved.json()["action"] == "logged"
     assert carlos.seen[0][0] == "сделал"
     assert carlos.seen[0][1]["exercises"] == ["Блок 1. Strike"]
-    assert loaded.json()["line"] == "сделано · спина в порядке"
+    assert loaded.json()["line"] == "сделано"
     assert missing.json()["entry"] is None
 
 
@@ -84,6 +84,33 @@ def test_carlos_log_is_503_without_an_agent() -> None:
             json={"text": "сделал", "date": "2026-09-22"},
         )
     assert denied.status_code == 503
+
+
+def test_carlos_log_returns_ok_false_when_openai_refuses() -> None:
+    import httpx
+
+    class Boom:
+        def log(self, text: str, card: dict) -> CarlosResult:
+            request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+            response = httpx.Response(
+                429,
+                request=request,
+                json={"error": {"code": "insufficient_quota"}},
+            )
+            raise httpx.HTTPStatusError("nope", request=request, response=response)
+
+        def last(self, log_date: str):
+            return None
+
+    app = _app(Boom())
+    with TestClient(app) as client:
+        saved = client.post(
+            "/api/carlos/log",
+            headers={"X-Assistant-Token": "secret"},
+            json={"text": "сделал", "date": "2026-09-22"},
+        )
+    assert saved.status_code == 200
+    assert saved.json()["ok"] is False
 
 
 def test_carlos_qr_points_at_carlos_only() -> None:

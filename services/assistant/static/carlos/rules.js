@@ -7,7 +7,6 @@ var CARLOS_RULES = (function () {
   var EARLY_TEXT = "Старт 22 сентября.";
   var LATE_TEXT = "Цикл кончился. Новый план собираем отдельно.";
   var STATUS = { done: "сделано", partial: "частично", skipped: "пропуск" };
-  var BACK = { ok: "спина в порядке", sore: "спина ноет", stop: "стоп и откат" };
 
   function parseISO(iso) {
     var parts = String(iso || "").split("-");
@@ -115,10 +114,30 @@ var CARLOS_RULES = (function () {
 
   function logLine(entry) {
     if (!entry) return "";
-    var status = STATUS[entry.status] || "";
-    var back = BACK[entry.back] || "";
-    if (status && back) return status + " · " + back;
-    return status;
+    return STATUS[entry.status] || "";
+  }
+
+  function wheelStep(view, dir) {
+    var next;
+    if (view.mode === "help") {
+      if (!view.atEdge) return { action: "scroll" };
+      return { action: "close" };
+    }
+    if (view.mode === "choice") {
+      next = view.index + dir;
+      if (next < 0 || next >= view.count) return { action: "date" };
+      return { action: "choice", index: next };
+    }
+    if (view.mode === "race") {
+      if (dir > 0) {
+        if (view.raceSide === "wed") return { action: "race", raceSide: "sat" };
+        return { action: "close" };
+      }
+      if (view.raceSide === "sat") return { action: "race", raceSide: "wed" };
+      return { action: "close" };
+    }
+    if (!view.atEdge) return { action: "scroll" };
+    return { action: "date" };
   }
 
   function present(day, state) {
@@ -162,6 +181,7 @@ var CARLOS_RULES = (function () {
     volumeNote: volumeNote,
     exerciseNames: exerciseNames,
     logLine: logLine,
+    wheelStep: wheelStep,
     present: present,
   };
 })();

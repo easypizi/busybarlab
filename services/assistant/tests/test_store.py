@@ -60,6 +60,9 @@ def test_workout_log_appends_and_corrects(tmp_path) -> None:
         assert store.replace_last_workout_log("2026-09-22", first, now) is True
         assert store.last_workout_log("2026-09-22") == first
         assert store.last_workout_log("2026-09-23") == other
+        same_day = store.workout_logs_between("2026-09-22", "2026-09-22")
+        assert same_day[-1] == first
+        assert len(store.workout_logs_between("2026-09-22", "2026-09-23")) == 3
 
 
 def test_draft_roundtrip_and_twelve_hour_expiry(tmp_path) -> None:

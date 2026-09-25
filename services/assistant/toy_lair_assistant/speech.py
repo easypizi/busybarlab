@@ -29,6 +29,18 @@ class OpenAISpeech(Speech):
         self.voice = voice
         self.instructions = instructions
         self.http = http or httpx.Client(timeout=60)
+        self.on_api_error = None
+
+    def _raise(self, response: httpx.Response) -> None:
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            if self.on_api_error is not None and (status in (401, 429) or status >= 500):
+                from toy_lair_assistant.openai_alert import openai_detail
+
+                self.on_api_error(status, openai_detail(exc.response))
+            raise
 
     def transcribe(self, data: bytes, mime: str) -> str:
         files = {"file": (_clip_name(mime), data, mime or "application/octet-stream")}
@@ -38,7 +50,7 @@ class OpenAISpeech(Speech):
             data={"model": self.stt_model},
             files=files,
         )
-        response.raise_for_status()
+        self._raise(response)
         return str(response.json().get("text") or "").strip()
 
     def speak(self, text: str) -> str:
@@ -52,7 +64,7 @@ class OpenAISpeech(Speech):
                 **({"instructions": self.instructions} if self.instructions else {}),
             },
         )
-        response.raise_for_status()
+        self._raise(response)
         return base64.b64encode(response.content).decode("ascii")
 
 

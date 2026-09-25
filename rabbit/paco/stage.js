@@ -51,6 +51,8 @@
     var sprites = {};
     var last = clock();
     var onIdle = options.onIdle || function () {};
+    var paused = false;
+    var frameId = 0;
 
     function setDialog(text, kind) {
       dialog.className = kind || "";
@@ -254,7 +256,15 @@
       }
     }
 
+    function clearSprites() {
+      var name;
+      for (name in sprites) {
+        if (Object.prototype.hasOwnProperty.call(sprites, name)) delete sprites[name];
+      }
+    }
+
     function frame() {
+      if (paused) return;
       var now = clock();
       var dt = now - last;
       if (dt >= FRAME) {
@@ -266,10 +276,25 @@
         }
       }
       draw(clock());
-      requestAnimationFrame(frame);
+      frameId = requestAnimationFrame(frame);
     }
 
-    requestAnimationFrame(frame);
+    function pause() {
+      paused = true;
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = 0;
+      clearSprites();
+    }
+
+    function resume() {
+      if (!paused) return;
+      paused = false;
+      last = clock();
+      frameId = requestAnimationFrame(frame);
+      draw(clock());
+    }
+
+    frameId = requestAnimationFrame(frame);
     draw(clock());
 
     return {
@@ -314,6 +339,8 @@
       lockBlink: function (name) {
         blinkLock = name || "";
       },
+      pause: pause,
+      resume: resume,
     };
   }
 
