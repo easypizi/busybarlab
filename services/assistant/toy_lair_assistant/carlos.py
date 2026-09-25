@@ -8,6 +8,18 @@ from typing import Any
 
 STATUSES = {"done", "partial", "skipped"}
 STATUS_RU = {"done": "сделано", "partial": "частично", "skipped": "пропуск"}
+SKIP_MARKS = (
+    "пропуск",
+    "пропустил",
+    "пропускаю",
+    "не пошел",
+    "не делал",
+    "не сделал",
+    "не был",
+    "не тренир",
+    "skip",
+)
+PARTIAL_MARKS = ("частично", "не все", "не додел", "только размин")
 
 
 @dataclass
@@ -92,10 +104,24 @@ def match_name(spoken: str, names: list[str]) -> str | None:
     return None
 
 
+def soften_status(status: str, text: str) -> str:
+    folded = text.lower().replace("ё", "е")
+    partial = any(mark in folded for mark in PARTIAL_MARKS)
+    skipped = any(mark in folded for mark in SKIP_MARKS)
+    if status != "skipped":
+        return status
+    if partial:
+        return "partial"
+    if skipped:
+        return "skipped"
+    return "done"
+
+
 def validate_entry(data: dict[str, Any], text: str, card: dict[str, Any]) -> dict[str, Any] | None:
     status = data.get("status")
     if status not in STATUSES:
         return None
+    status = soften_status(status, text)
     allowed = _names(card)
     items: list[dict[str, Any]] = []
     raw_items = data.get("items")
@@ -134,11 +160,15 @@ def _prompt(text: str, card: dict[str, Any]) -> str:
         "Keys only: date, sessionId, status, items, raw.\n"
         "Copy date and sessionId from the card.\n"
         "status is done, partial, or skipped.\n"
+        "done: they trained. This includes норм, готово, было, сходил, потренировался, отзанимался, and a list of what they did. Numbers are optional.\n"
+        "partial: they say they did only part, such as частично, не всё, не доделал, только разминку.\n"
+        "skipped: ONLY when they explicitly did not train, such as пропуск, пропустил, не пошёл, не делал, не был.\n"
+        "If you are unsure, use done. Never use skipped as a fallback.\n"
         "items lists only exercises named on the card, and only numbers spoken aloud.\n"
         'Each item is {"name":"...","actual":"..."}.\n'
         "Do not invent reps. Do not add an exercise that is not on the card.\n"
+        "A session report with no numbers is still done, with items [].\n"
         "raw is the dictation unchanged.\n"
-        'The phrase "Сделал" is status done and items [].\n'
         "Do not change the day's plan.\n"
         f"Card: {json.dumps(brief, ensure_ascii=False)}\n"
         f"Dictation: {text}"
