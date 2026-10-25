@@ -11,13 +11,14 @@ ACCOUNT="${ACCOUNT:-work}"
 DAEMON_URL="${DAEMON_URL:-http://127.0.0.1:8765}"
 ZAYKA_DIR="${ZAYKA_DIR:-$HOME/Documents/Zayka}"
 INTERVAL="${INTERVAL:-300}"
+COLLECTOR_INTERVAL="${COLLECTOR_INTERVAL:-300}"
 HELPER="${HELPER:-$HOME/Library/Application Support/toy_lair/Zayka Pull.app/Contents/MacOS/zayka-pull}"
 LOG_DIR="${LOG_DIR:-$HOME/Library/Logs/toy_lair}"
 LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
 
 usage() {
-  echo "Usage: $0 daemon|reporter|zayka-pull|uninstall-daemon|uninstall-reporter|uninstall-zayka-pull"
-  echo "Env: LOCAL_ACCOUNT BUSYBAR_ADDRESS ACCOUNT DAEMON_URL PYTHON ZAYKA_DIR INTERVAL"
+  echo "Usage: $0 daemon|reporter|zayka-pull|collector|uninstall-daemon|uninstall-reporter|uninstall-zayka-pull|uninstall-collector"
+  echo "Env: LOCAL_ACCOUNT BUSYBAR_ADDRESS ACCOUNT DAEMON_URL PYTHON ZAYKA_DIR INTERVAL COLLECTOR_INTERVAL"
   exit 1
 }
 
@@ -33,6 +34,7 @@ render() {
     -e "s|__DAEMON_URL__|$DAEMON_URL|g" \
     -e "s|__ZAYKA_DIR__|$ZAYKA_DIR|g" \
     -e "s|__INTERVAL__|$INTERVAL|g" \
+    -e "s|__COLLECTOR_INTERVAL__|$COLLECTOR_INTERVAL|g" \
     -e "s|__HELPER__|$HELPER|g" \
     -e "s|__LOG_DIR__|$LOG_DIR|g" \
     "$src" > "$dst"
@@ -86,6 +88,20 @@ case "$MODE" in
     launchctl unload "$DST" 2>/dev/null || true
     launchctl load "$DST"
     echo "Loaded $DST"
+    ;;
+  collector)
+    LABEL="app.toy_lair.collector"
+    DST="$LAUNCH_AGENTS/$LABEL.plist"
+    render "$REPO_ROOT/deploy/launchd/$LABEL.plist.template" "$DST"
+    launchctl unload "$DST" 2>/dev/null || true
+    launchctl load "$DST"
+    echo "Loaded $DST"
+    ;;
+  uninstall-collector)
+    DST="$LAUNCH_AGENTS/app.toy_lair.collector.plist"
+    launchctl unload "$DST" 2>/dev/null || true
+    rm -f "$DST"
+    echo "Uninstalled collector agent"
     ;;
   uninstall-zayka-pull)
     DST="$LAUNCH_AGENTS/app.toy_lair.zayka-pull.plist"

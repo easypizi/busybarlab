@@ -38,7 +38,7 @@ Palette is `#111` ground, `#FE5000` accent, teal `#1A9B96` and pink `#E25B8A` on
 
 ## Zayka
 
-Never index or send `40 Areas/sensitive/`. Do not write to the vault from the assistant.
+Never index or send `40 Areas/sensitive/`. The Heroku assistant does not write to the vault except Paco's Inbox and daily appends. The Mac collector (`services/assistant/toy_lair_assistant/collector/`) may create `20 Sources/<source>/*.md` and `50 MOC/MOC-*.md`, and edit existing notes only inside `<!-- paco:links -->` blocks. Never `40 Areas/sensitive/`, the Diary folder, `.obsidian/`, `.git/`, `Presentations/`.
 
 ## Examples
 

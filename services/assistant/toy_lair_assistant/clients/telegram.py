@@ -24,12 +24,21 @@ ADDRESS_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+URL_RE = re.compile(r"https?://[^\s<>\"')\]]+")
+
+
+def _forwarded(message: dict) -> bool:
+    return bool(message.get("forward_origin") or message.get("forward_date"))
+
+
 COMMANDS = [
     {"command": "today", "description": "Today's tasks and events"},
     {"command": "week", "description": "Next 7 days"},
     {"command": "plan", "description": "List of lines, Tito slots them"},
     {"command": "tito", "description": "Say it to Tito"},
     {"command": "paco", "description": "Say it to Paco"},
+    {"command": "sync", "description": "Paco fetches new saved items"},
+    {"command": "sources", "description": "Library sources and last run"},
     {"command": "help", "description": "How Ostanovka works"},
 ]
 
@@ -45,7 +54,10 @@ HELP = (
     "**Paco**\n"
     "Paco, запиши ...\n"
     "Paco, где ...\n"
-    "/paco ...\n\n"
+    "/paco ...\n"
+    "/sync: fetch saved items now\n"
+    "/sources: library counts\n"
+    "Send a link or forward a post, and Paco files it.\n\n"
     "No name, and Ostanovka asks who it is for.\n"
     "Hold PTT on the r1 to talk."
 )
@@ -155,7 +167,9 @@ class TelegramBot:
         now: Callable[[], datetime] | None = None,
         day_planner: Any = None,
         task_sync: Any = None,
+        library: Any = None,
     ) -> None:
+        self.library = library
         self.token = token
         self.chat_id = str(chat_id)
         self.http = http or httpx.Client(timeout=30)
@@ -239,7 +253,38 @@ class TelegramBot:
         if reply_who:
             self._to(reply_who, text, agent, paco)
             return
+        if self.library is not None and (URL_RE.search(text) or _forwarded(message)):
+            self._queue_for_paco(text)
+            return
         self._ask_who(text, agent)
+
+    def _queue_for_paco(self, text: str) -> None:
+        urls = list(dict.fromkeys(URL_RE.findall(text)))
+        self.library.enqueue_job(
+            "url", {"text": text, "urls": urls, "at": self.now().isoformat()}, self.now()
+        )
+        self.voice("paco").send_message("Queued. The Mac files it within 5 minutes if it is awake.")
+
+    def _sync(self, source: str) -> None:
+        if self.library is None:
+            self.voice("paco").send_message("The library is not set up.")
+            return
+        self.library.enqueue_job("sync", {"source": source.strip()}, self.now())
+        self.voice("paco").send_message("Sync queued. I will report when the Mac finishes.")
+
+    def _sources(self) -> None:
+        if self.library is None:
+            self.voice("paco").send_message("The library is not set up.")
+            return
+        counts = self.library.counts()
+        last = self.library.last_run()
+        lines = ["**Library**"]
+        lines.extend(f"- {name}: {count}" for name, count in sorted(counts.items()))
+        if not counts:
+            lines.append("Empty so far.")
+        lines.append(f"Last run: {last['at'] if last else 'never'}")
+        lines.append(f"Queued jobs: {self.library.pending_jobs()}")
+        self.voice("paco").send_message("\n".join(lines))
 
     def ensure_profile(self, store: Any, now: datetime) -> None:
         key = f"tg_profile:v2:{now.date().isoformat()}"
@@ -284,6 +329,12 @@ class TelegramBot:
             return
         if name == "/plan":
             self._send_plan(rest)
+            return
+        if name == "/sync":
+            self._sync(rest)
+            return
+        if name == "/sources":
+            self._sources()
             return
         if name == "/tito":
             if not rest.strip():

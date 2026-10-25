@@ -105,6 +105,61 @@ PACO_TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "library_search",
+            "description": "Search the personal library: saved Instagram posts, Telegram links, mail, Chrome reading list, bot-added links.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "source": {"type": "string", "description": "instagram, telegram, gmail, chrome, bot, zayka"},
+                    "kind": {"type": "string", "description": "recipe, workout, tool, article, idea, video, email, place, product"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "library_recent",
+            "description": "List the newest library items.",
+            "parameters": {
+                "type": "object",
+                "properties": {"source": {"type": "string"}, "days": {"type": "integer"}},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "library_item",
+            "description": "Read one library item by id.",
+            "parameters": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+                "required": ["id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "collector_sync",
+            "description": "Ask the Mac collector to fetch new items now. Optional source.",
+            "parameters": {"type": "object", "properties": {"source": {"type": "string"}}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "collector_status",
+            "description": "Last collector run, item counts per source, queued jobs.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]
 
 
@@ -124,7 +179,9 @@ class PacoAgent:
         now: Any,
         store: Any = None,
         notify: Any = None,
+        library: Any = None,
     ) -> None:
+        self.library = library
         self.llm = llm
         self.vault = vault
         self.writer = writer
@@ -139,6 +196,16 @@ class PacoAgent:
             "zayka_inbox_create": self._inbox_create,
             "zayka_daily_append": self._daily_append,
         }
+        if library is not None:
+            self.tools.update(
+                {
+                    "library_search": self._library_search,
+                    "library_recent": self._library_recent,
+                    "library_item": self._library_item,
+                    "collector_sync": self._collector_sync,
+                    "collector_status": self._collector_status,
+                }
+            )
         self._searched = False
         self._hits: list[dict[str, str]] = []
         self._user_text = ""
@@ -228,6 +295,12 @@ class PacoAgent:
             "If the user asks for an evergreen or project note, or to edit or delete, "
             "refuse in one sentence. Do not call a write tool."
         )
+        if self.library is not None:
+            lines.append(
+                "The library holds saved Instagram posts, Telegram links, starred mail, the Chrome reading list "
+                "and links sent to the bot. Use library_search for those. Mail items have no body, only a summary. "
+                "Use collector_sync only when the user asks to fetch or refresh."
+            )
         lines.append(
             "Spoken replies are one or two sentences. Do not read the catalog. "
             "If there are many hits, say to look at the peek."
@@ -252,6 +325,50 @@ class PacoAgent:
         if not hits:
             return "No notes."
         return "\n".join(f"- {hit.path}: {hit.snippet}" for hit in hits)
+
+    def _library_search(self, query: str, source: str = "", kind: str = "") -> str:
+        rows = self.library.search(query, source=source.strip(), kind=kind.strip())
+        self._searched = True
+        self._hits.extend(
+            {
+                "path": row["vault_path"] or row["url"],
+                "title": row["title"],
+                "snippet": row["summary"][:200],
+            }
+            for row in rows
+        )
+        if not rows:
+            return "No library items."
+        return "\n".join(_library_line(row) for row in rows)
+
+    def _library_recent(self, source: str = "", days: int = 7) -> str:
+        rows = self.library.recent(self.now(), source=source.strip(), days=int(days or 7))
+        if not rows:
+            return "No new library items."
+        return "\n".join(_library_line(row) for row in rows)
+
+    def _library_item(self, id: str) -> str:
+        row = self.library.get(id.strip())
+        if row is None:
+            return "No such item."
+        return (
+            f"{row['title']}\nsource={row['source']} kind={row['kind']} topics={', '.join(row['topics'])}\n"
+            f"url={row['url']}\nvault={row['vault_path']}\nauthor={row['author']}\n{row['summary']}\n{row['snippet']}"
+        )
+
+    def _collector_sync(self, source: str = "") -> str:
+        job = self.library.enqueue_job("sync", {"source": source.strip()}, self.now())
+        return f"Queued sync {job}. The Mac picks it up within 5 minutes if it is awake."
+
+    def _collector_status(self) -> str:
+        last = self.library.last_run()
+        counts = self.library.counts()
+        lines = [f"queued_jobs={self.library.pending_jobs()}"]
+        lines.append(f"last_run={last['at'] if last else 'never'}")
+        if last and last.get("errors"):
+            lines.append("errors=" + ", ".join(last["errors"]))
+        lines.extend(f"{name}={count}" for name, count in sorted(counts.items()))
+        return "\n".join(lines)
 
     def _read(self, path: str) -> str:
         return self.vault.read_for_model(path)
@@ -406,6 +523,10 @@ class PacoAgent:
             return
         self.store.add_turn(CHANNEL, "user", user, now)
         self.store.add_turn(CHANNEL, "assistant", reply, now)
+
+
+def _library_line(row: dict[str, Any]) -> str:
+    return f"- {row['id']} | {row['source']} | {row['kind']} | {row['title']} | {row['summary'][:120]} | {row['url']}"
 
 
 def _note_on_disk(root: Path, relative: str) -> str:

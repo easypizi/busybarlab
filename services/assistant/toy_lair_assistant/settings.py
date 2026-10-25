@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     remind_label: str = "remind"
     remind_nudge_hours: int = 3
     task_sync_interval_seconds: float = 300
+    collector_token: str = ""
 
     def creation_origin(self) -> str:
         url = self.creation_public_url.strip()

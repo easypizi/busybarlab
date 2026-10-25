@@ -1,0 +1,4 @@
+-r requirements.txt
+plyvel-ci>=1.5.1
+instaloader>=4.13
+telethon>=1.36

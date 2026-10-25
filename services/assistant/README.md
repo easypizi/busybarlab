@@ -48,3 +48,26 @@ Zayka: set `ZAYKA_DIR`, `ZAYKA_SYNC_ENABLED=true`, and `ZAYKA_REPO_URL=https://<
 ## Google OAuth (once)
 
 Create a Desktop OAuth client. Keep Audience in **Testing**, add your Gmail as a test user. Do not publish: Calendar is a sensitive scope and unverified production returns 403. Put `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`, then run `python -m toy_lair_assistant.google_auth` from `services/assistant`. Store the printed `GOOGLE_REFRESH_TOKEN`. Testing refresh tokens expire after 7 days. When they die, Telegram gets one `Calendar auth expired` message that day.
+
+## Library and collector
+
+Paco searches a personal library: saved Instagram posts, Telegram links, starred Gmail, the Chrome reading list, links sent to the bot, and Zayka notes. Heroku keeps the index (`library_items`, `collector_jobs` in Postgres). A collector on the Mac fetches and enriches, writes notes to Zayka, and pushes rows. Sessions and passwords stay in the Mac Keychain. The Mac opens no inbound port.
+
+Heroku: set `COLLECTOR_TOKEN` (long random string). `/api/library/items`, `/api/collector/jobs`, `/api/collector/jobs/{id}/done`, `/api/collector/event` take `Authorization: Bearer <COLLECTOR_TOKEN>`. Alerts reach Telegram once per day per source.
+
+Mac setup, from the repo root:
+
+```bash
+uv pip install --python .venv/bin/python -r services/assistant/requirements-collector.txt
+brew install ffmpeg
+cd services/assistant
+../../.venv/bin/python -m toy_lair_assistant.collector auth openai_api_key
+../../.venv/bin/python -m toy_lair_assistant.collector auth collector_token
+../../.venv/bin/python -m toy_lair_assistant.collector auth gmail_app_password
+../../.venv/bin/python -m toy_lair_assistant.collector auth instagram
+../../.venv/bin/python -m toy_lair_assistant.collector auth telegram
+```
+
+Config goes in `~/Library/Application Support/toy_lair/collector.json`: `gmail_user`, `instagram_user`, `telegram_allowlist` (chat ids or usernames), optional `gmail_query`, `per_run_limit`, `vault_dir`, `chrome_profile`, `heroku_url`. Sources without credentials are skipped. Then `collector run` for one pass, `collector backfill` to drain a backlog, and `deploy/launchd/install.sh collector` for the agent. The agent runs `poll` every 5 minutes: it serves queued jobs (`/sync`, links sent to the bot), then runs the full pass once a day after 04:00 local, or every 2 hours while a backlog remains. A sleeping Mac catches up on wake.
+
+Telegram: `/sync [source]`, `/sources`. Send a link or forward a post with no name and Paco files it. Instagram uses a session (not an official API), caps each run at `per_run_limit` posts, pauses between posts, and stops without retrying on a checkpoint. Telegram reading uses your user session through Telethon, only for chats in the allowlist. Chrome Read Later is read from a copy of `Default/Sync Data/LevelDB`.

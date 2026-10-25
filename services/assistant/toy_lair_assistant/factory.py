@@ -12,6 +12,7 @@ from toy_lair_assistant.day_plan import DayPlanner
 from toy_lair_assistant.google_alert import make_auth_alerter
 from toy_lair_assistant.clients.todoist import TodoistClient
 from toy_lair_assistant.clock import Clock
+from toy_lair_assistant.library import open_library
 from toy_lair_assistant.llm import EchoLLM, OpenAILLM
 from toy_lair_assistant.carlos import CarlosAgent
 from toy_lair_assistant.openai_alert import make_openai_alerter
@@ -36,6 +37,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
     clock = Clock(settings.timezone)
     store = open_store(settings.database_url)
+    library = open_library(settings.database_url)
     todoist = (
         TodoistClient(
             settings.todoist_api_token, now=clock.now, timezone=settings.timezone
@@ -94,6 +96,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         else None
     )
     if notify is not None:
+        notify.library = library
         notify.day_planner = day_planner
         notify.task_sync = task_sync
     agent = None
@@ -140,6 +143,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             now=clock.now,
             store=store,
             notify=notify.voice("paco") if notify else None,
+            library=library,
         )
     carlos = CarlosAgent(llm=llm, store=store) if settings.openai_api_key else None
     app = create_app(
@@ -154,6 +158,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         notify=notify,
         paco=paco,
         carlos=carlos,
+        library=library,
     )
     if agent and notify and todoist and calendar:
         app.state.scheduler = Scheduler(

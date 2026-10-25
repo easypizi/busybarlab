@@ -79,6 +79,7 @@ def _attach_paco(deps: Any, path: Path) -> None:
         now=deps.clock.now,
         store=getattr(deps, "store", None),
         notify=notify,
+        library=getattr(deps, "library", None),
     )
 
 

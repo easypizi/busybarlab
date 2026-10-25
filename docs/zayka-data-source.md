@@ -79,3 +79,16 @@ Tito:
 Tito does not create, update, delete, commit, or push.
 
 Paco adds `zayka_list_inbox`, `zayka_inbox_create`, and `zayka_daily_append`. Writes are only a new `00 Inbox/YYYY-MM-DD-*.md` file or an append to `60 Daily/YYYY/MM/YYYY-MM-DD.md`. Paco does not edit or delete notes, and it does not write `60 Daily/Дневник/`.
+
+## Collector writes (Mac)
+
+The collector (`python -m toy_lair_assistant.collector`) runs on the Mac, not on Heroku. It is the only writer beyond Paco. Its allowlist lives in `collector/vault_layout.py`:
+
+- Create `20 Sources/{instagram,telegram,gmail,chrome,bot}/<slug>-<hash>.md` (`type: source`, `status: draft`, `tags: [to-process]`, `source:` is the URL).
+- Create or refresh `50 MOC/MOC-<Kind>.md` once a kind has 3 or more items. Only the `<!-- paco:links -->` block is replaced.
+- Add `[[wikilinks]]` to existing notes in `10 Evergreen/`, `30 Projects/`, `40 Areas/`, `50 MOC/`, only inside a `<!-- paco:links -->` block. Text outside the block is never edited.
+- Never touch `40 Areas/sensitive/`, the Diary folder under `60 Daily/`, `.obsidian/`, `.git/`, `Presentations/`.
+- One commit per run, author `Paco`, message `Library: N items`. Undo a run with `git revert`.
+- Mail bodies are not quoted in notes and not sent to Heroku. Only subject, sender, summary, links.
+
+Items also go to Heroku (`library_items`, searched by Paco with `library_search`). Notes under `20 Sources/<source>/` are not re-indexed as vault notes.

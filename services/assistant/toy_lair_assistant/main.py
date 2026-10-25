@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from toy_lair_assistant.agent import invoke_agent
-from toy_lair_assistant.auth import require_token
+from toy_lair_assistant.auth import require_collector, require_token
 from toy_lair_assistant.carlos import entry_line
 from toy_lair_assistant.clock import Clock
 from toy_lair_assistant.openai_alert import OPENAI_REPLY, openai_failure
@@ -60,6 +60,7 @@ class AppDeps:
     pairing: Pairing | None = None
     paco: Any = None
     carlos: Any = None
+    library: Any = None
 
 
 def create_app(
@@ -76,6 +77,7 @@ def create_app(
     pairing: Pairing | None = None,
     paco: Any = None,
     carlos: Any = None,
+    library: Any = None,
 ) -> FastAPI:
     settings = settings or Settings()
     deps = AppDeps(
@@ -91,6 +93,7 @@ def create_app(
         pairing=pairing or Pairing(settings.assistant_api_token),
         paco=paco,
         carlos=carlos,
+        library=library,
     )
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -341,6 +344,68 @@ def create_app(
             raise HTTPException(status_code=503, detail="todoist is not configured")
         deps.todoist.complete(task_id)
         return {"ok": True, "id": task_id}
+
+    def _collector(authorization: str | None) -> Any:
+        require_collector(deps.settings, authorization)
+        if deps.library is None:
+            raise HTTPException(status_code=503, detail="library is not configured")
+        return deps.library
+
+    @app.post("/api/library/items")
+    def library_items(
+        payload: dict[str, Any],
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        library = _collector(authorization)
+        items = payload.get("items")
+        if not isinstance(items, list) or len(items) > 100:
+            raise HTTPException(status_code=400, detail="items must be a list of up to 100")
+        return {"stored": library.add_items([i for i in items if isinstance(i, dict)], deps.clock.now())}
+
+    @app.get("/api/collector/jobs")
+    def collector_jobs(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        library = _collector(authorization)
+        return {"jobs": library.claim_jobs(deps.clock.now())}
+
+    @app.post("/api/collector/jobs/{job_id}/done")
+    def collector_job_done(
+        job_id: str,
+        payload: dict[str, Any],
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, bool]:
+        library = _collector(authorization)
+        if not library.finish_job(job_id, bool(payload.get("ok")), str(payload.get("message") or "")):
+            raise HTTPException(status_code=404, detail="unknown job")
+        return {"ok": True}
+
+    @app.post("/api/collector/event")
+    def collector_event(
+        payload: dict[str, Any],
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, bool]:
+        library = _collector(authorization)
+        kind = str(payload.get("kind") or "")
+        source = str(payload.get("source") or "collector")[:40]
+        text = str(payload.get("text") or "")[:1000]
+        now = deps.clock.now()
+        voice = _signed(deps.notify, "paco")
+        if kind == "digest":
+            summary = payload.get("summary")
+            library.record_run(summary if isinstance(summary, dict) else {}, now)
+            counts = (summary or {}).get("counts") if isinstance(summary, dict) else {}
+            if voice is not None and counts and any(counts.values()):
+                voice.send_text(text)
+        elif kind == "alert":
+            key = f"collector_alert:{source}:{now.date().isoformat()}"
+            if deps.store is not None and deps.store.seen(key):
+                return {"ok": True}
+            if deps.store is not None:
+                deps.store.mark(key)
+            if voice is not None:
+                voice.send_text(text)
+        else:
+            raise HTTPException(status_code=400, detail="unknown event kind")
+        return {"ok": True}
 
     @app.post("/telegram/webhook")
     def telegram_webhook(update: dict[str, Any]) -> dict[str, bool]:
