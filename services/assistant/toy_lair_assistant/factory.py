@@ -148,18 +148,22 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     carlos = CarlosAgent(llm=llm, store=store) if settings.openai_api_key else None
     gazeta = None
     if settings.gazeta_ready() and todoist:
-        from toy_lair_assistant.gazeta.job import GazetaJob
+        try:
+            from toy_lair_assistant.gazeta.job import GazetaJob
 
-        gazeta = GazetaJob(
-            settings=settings,
-            clock=clock,
-            store=store,
-            todoist=todoist,
-            calendar=calendar,
-            notify=notify,
-        )
-        if notify is not None:
-            notify.gazeta = gazeta
+            gazeta = GazetaJob(
+                settings=settings,
+                clock=clock,
+                store=store,
+                todoist=todoist,
+                calendar=calendar,
+                notify=notify,
+            )
+            if notify is not None:
+                notify.gazeta = gazeta
+        except Exception:
+            logging.getLogger(__name__).exception("gazeta disabled")
+            gazeta = None
     app = create_app(
         settings,
         clock=clock,
