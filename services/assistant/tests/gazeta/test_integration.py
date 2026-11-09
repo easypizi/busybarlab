@@ -82,7 +82,7 @@ def patched(monkeypatch):
 
     monkeypatch.setattr(job_mod, "Editor", FakeEditor)
     seen_args = []
-    monkeypatch.setattr(job_mod.weather_src, "fetch", lambda *a: seen_args.append(a) or {"now_f": 55, "high": 60, "low": 50, "summary": "Fog.", "sunrise": "6:40 AM", "sunset": "4:56 PM", "daylight": "10 h", "rain_pct": 0})
+    monkeypatch.setattr(job_mod.weather_src, "fetch", lambda *a: seen_args.append(a) or {"now_c": 13, "high": "16°C", "low": "10°C", "summary": "Fog.", "sunrise": "6:40 AM", "sunset": "4:56 PM", "daylight": "10 h", "rain_pct": 0})
     monkeypatch.setattr(job_mod.threats_src, "fetch", lambda *a: {"summary": "Quiet.", "lines": ["l"], "alert_active": False})
     monkeypatch.setattr(job_mod.launches_src, "fetch", lambda *a: [])
     monkeypatch.setattr(job_mod.f1_src, "fetch", lambda *a: {"next": None, "last": None, "standings": []})

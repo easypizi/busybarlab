@@ -100,7 +100,7 @@ def sample_view(stories_per_section: int = 3, body_paragraphs: int = 4) -> dict:
         now=NOW,
         issue_no=1,
         city="Burlingame, CA",
-        weather={"now_f": 58, "high": 66, "low": 52, "summary": "Morning fog clearing by noon, light breeze from the west, 10% chance of rain.", "sunrise": "6:41 AM", "sunset": "4:56 PM", "daylight": "10 h 15 min", "rain_pct": 10},
+        weather={"now_c": 14, "high": "19°C", "low": "11°C", "summary": "Morning fog clearing by noon, light breeze from the west, 10% chance of rain.", "sunrise": "6:41 AM", "sunset": "4:56 PM", "daylight": "10 h 15 min", "rain_pct": 10},
         countdown="Today: Veterans Day is in 2 days",
         threats=threats,
         issue=issue,

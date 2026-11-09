@@ -173,4 +173,4 @@ Plain English, second person, short sentences, active voice.
 `submit_issue` takes JSON matching the schema in code: `lead`, `teasers`, `sections`, `incidents`, `dropped`. Each story carries `headline`, `summary`, `url`, `source` and `published`, copied from the opened article. In `dropped`, list strong candidates you rejected with a one-sentence reason. This goes to the log, not to print.
 
 ## Units
-Code prints the big current temperature in °F. In your text everything is metric, temperature included: °C, km, km/h, mm, kg, hectares, liters. Convert units from articles (°F, miles, acres, feet, pounds, gallons) and round sensibly. Never print imperial units.
+Metric only, everywhere: °C, km, km/h, m, mm, kg, hectares, liters. Convert units from articles (°F, miles, acres, feet, inches, pounds, gallons) and round sensibly. Never print an imperial unit, not even next to the metric one.

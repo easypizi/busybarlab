@@ -57,12 +57,12 @@ def test_summary_and_alert_flag():
 def test_weather_parse():
     hours = [f"2026-11-08T{h:02d}:00" for h in range(24)]
     data = {
-        "current": {"temperature_2m": 55.0},
-        "hourly": {"time": hours, "temperature_2m": [50 + h * 0.5 for h in range(24)]},
+        "current": {"temperature_2m": 13.0},
+        "hourly": {"time": hours, "temperature_2m": [10 + h * 0.5 for h in range(24)]},
         "daily": {
             "time": ["2026-11-08"],
-            "temperature_2m_max": [68.0],
-            "temperature_2m_min": [50.0],
+            "temperature_2m_max": [20.0],
+            "temperature_2m_min": [10.0],
             "precipitation_probability_max": [10],
             "sunrise": ["2026-11-08T06:42"],
             "sunset": ["2026-11-08T17:03"],
@@ -74,7 +74,8 @@ def test_weather_parse():
     assert "km/h" in out["summary"] and "°F" not in out["summary"]
     assert out["sunrise"] == "6:42 AM" and out["sunset"] == "5:03 PM"
     assert out["daylight"] == "10 h 21 min"
-    assert "Morning 12°C" in out["summary"]
+    assert "Morning 14°C" in out["summary"]
+    assert out["now_c"] == 13
 
 
 def test_launches_parse_converts_to_pt():

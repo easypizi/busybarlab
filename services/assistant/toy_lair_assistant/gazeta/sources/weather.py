@@ -1,4 +1,4 @@
-"""Open-Meteo forecast for the reader's point, in Fahrenheit for the headline figure, Celsius and km/h in the text."""
+"""Open-Meteo forecast for the reader's point, metric only: °C and km/h."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from toy_lair_assistant.gazeta.sources.http import get_json
 URL = "https://api.open-meteo.com/v1/forecast"
 
 
-def _fmt(f: float) -> str:
-    return f"{round((f - 32) * 5 / 9)}°C"
+def _fmt(c: float) -> str:
+    return f"{round(c)}°C"
 
 
 def parse(data: dict, today: str) -> dict:
@@ -28,7 +28,7 @@ def parse(data: dict, today: str) -> dict:
     sunset = datetime.fromisoformat(daily["sunset"][index])
     daylight = sunset - sunrise
     hours, rem = divmod(int(daylight.total_seconds()), 3600)
-    now_f = data.get("current", {}).get("temperature_2m", temps["morning"])
+    now_c = data.get("current", {}).get("temperature_2m", temps["morning"])
     rain = daily["precipitation_probability_max"][index]
     wind = daily["wind_speed_10m_max"][index]
     parts = [
@@ -36,7 +36,7 @@ def parse(data: dict, today: str) -> dict:
         f"Rain chance {int(rain or 0)}%, wind up to {round(wind)} km/h.",
     ]
     return {
-        "now_f": round(now_f),
+        "now_c": round(now_c),
         "high": _fmt(daily["temperature_2m_max"][index]),
         "low": _fmt(daily["temperature_2m_min"][index]),
         "summary": " ".join(parts),
@@ -55,7 +55,6 @@ def fetch(http: httpx.Client, today: str, timezone: str) -> dict:
             "latitude": LAT,
             "longitude": LON,
             "timezone": timezone,
-            "temperature_unit": "fahrenheit",
             "wind_speed_unit": "kmh",
             "current": "temperature_2m",
             "hourly": "temperature_2m",
