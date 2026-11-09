@@ -34,6 +34,7 @@ def _forwarded(message: dict) -> bool:
 COMMANDS = [
     {"command": "today", "description": "Today's tasks and events"},
     {"command": "week", "description": "Next 7 days"},
+    {"command": "gazeta", "description": "IVANencial Times, today's issue"},
     {"command": "plan", "description": "List of lines, Tito slots them"},
     {"command": "tito", "description": "Say it to Tito"},
     {"command": "paco", "description": "Say it to Paco"},
@@ -49,6 +50,7 @@ HELP = (
     "/today: day card\n"
     "/week: week by day\n"
     "/plan: list of lines\n"
+    "/gazeta: IVANencial Times, PDF in chat and email\n"
     "Tito, ...\n"
     "/tito ...\n\n"
     "**Paco**\n"
@@ -149,8 +151,12 @@ class Voice:
         text: str,
         buttons: list[list[dict[str, str]]] | None = None,
         photo: Path | None = None,
+        preview: bool = True,
     ) -> None:
-        self.bot.send_message(f"**{self.label}**\n{text}", buttons=buttons, photo=photo)
+        self.bot.send_message(f"**{self.label}**\n{text}", buttons=buttons, photo=photo, preview=preview)
+
+    def send_document(self, data: bytes, filename: str, caption: str = "") -> None:
+        self.bot.send_document(data, filename, f"**{self.label}**\n{caption}" if caption else "")
 
 
 class TelegramBot:
@@ -168,8 +174,10 @@ class TelegramBot:
         day_planner: Any = None,
         task_sync: Any = None,
         library: Any = None,
+        gazeta: Any = None,
     ) -> None:
         self.library = library
+        self.gazeta = gazeta
         self.token = token
         self.chat_id = str(chat_id)
         self.http = http or httpx.Client(timeout=30)
@@ -203,6 +211,7 @@ class TelegramBot:
         text: str,
         buttons: list[list[dict[str, str]]] | None = None,
         photo: Path | None = None,
+        preview: bool = True,
     ) -> None:
         markup = {"inline_keyboard": buttons} if buttons else None
         if photo and photo.exists():
@@ -222,8 +231,22 @@ class TelegramBot:
             "text": to_html(text),
             "parse_mode": "HTML",
         }
+        if not preview:
+            payload["disable_web_page_preview"] = True
         if markup:
             payload["reply_markup"] = markup
+        self.sender(payload)
+
+    def send_document(self, data: bytes, filename: str, caption: str = "") -> None:
+        payload: dict[str, Any] = {
+            "_method": "sendDocument",
+            "chat_id": self.chat_id,
+            "_filename": filename,
+            "_document": data,
+        }
+        if caption:
+            payload["caption"] = to_html(caption)
+            payload["parse_mode"] = "HTML"
         self.sender(payload)
 
     def handle_update(self, update: dict, agent: Any, speech: Any, paco: Any = None) -> None:
@@ -330,6 +353,9 @@ class TelegramBot:
         if name == "/plan":
             self._send_plan(rest)
             return
+        if name == "/gazeta":
+            self._gazeta()
+            return
         if name == "/sync":
             self._sync(rest)
             return
@@ -349,6 +375,15 @@ class TelegramBot:
             self._paco_reply(paco, rest.strip())
             return
         self._agent_reply(agent, text)
+
+    def _gazeta(self) -> None:
+        if self.gazeta is None:
+            self.voice("tito").send_message("The paper is not set up here.")
+            return
+        if self.gazeta.start(on_demand=True):
+            self.voice("tito").send_message("Going to press. The paper takes a few minutes.")
+        else:
+            self.voice("tito").send_message("The paper is already on the press.")
 
     def _to(self, who: str, text: str, agent: Any, paco: Any) -> None:
         if who == "paco":
@@ -618,6 +653,13 @@ class TelegramBot:
             data["chat_id"] = payload.get("chat_id", self.chat_id)
             url = f"https://api.telegram.org/bot{self.token}/sendPhoto"
             self.http.post(url, data=data, files=files).raise_for_status()
+            return
+        if method == "sendDocument":
+            name = str(payload.pop("_filename"))
+            data = payload.pop("_document")
+            files = {"document": (name, data, "application/pdf")}
+            url = f"https://api.telegram.org/bot{self.token}/sendDocument"
+            self.http.post(url, data=payload, files=files, timeout=120).raise_for_status()
             return
         url = f"https://api.telegram.org/bot{self.token}/{method}"
         self.http.post(url, json=payload).raise_for_status()

@@ -1,0 +1,273 @@
+{% macro bubble(x, y, lines, size, anchor="middle") -%}
+  {%- set n = lines|length -%}
+  {%- for line in lines[:2] -%}
+    <text x="{{ x }}" y="{{ y + (loop.index0 * (size + 3)) + (0 if n > 1 else (size + 3) / 2) }}" font-size="{{ size }}" text-anchor="{{ anchor }}">{{ line }}</text>
+  {%- endfor -%}
+{%- endmacro %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>IVANencial Times {{ v.date_short }}</title>
+<style>
+{% for f in fonts %}@font-face{font-family:'{{ f.family }}';font-style:{{ f.style }};font-weight:{{ f.weight }};src:url('{{ f.url }}') format('woff2');}
+{% endfor %}
+@page { size: A4; margin: 0; }
+@page flow { size: A4; margin: 13mm 14mm 17mm;
+  @bottom-center { content: "IVANencial Times  ·  {{ v.date_short }}  ·  p. " counter(page); font-family: 'Literata', Georgia, serif; font-size: 8pt; color: #555; } }
+:root{ --ink:#000; --grey:#5e5e5e; --tint:#ececec; --paper:#fff;
+  --serif:'Playfair Display', Georgia, serif; --text:'Literata', Georgia, serif; --display:'Unbounded','Arial Black',sans-serif; --hand:'Neucha','Comic Sans MS',cursive; }
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{ background:#fff; color:#000; }
+body{ font-family:var(--text); font-size:9.2pt; line-height:1.4; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.fixed{ width:210mm; height:297mm; padding:9mm 14mm 9mm; display:flex; flex-direction:column; overflow:hidden; page-break-after:always; break-after:page; position:relative; }
+h2{ font-family:var(--serif); font-weight:700; font-size:12.5pt; line-height:1.1; margin-bottom:2mm; }
+.small{ font-size:8.3pt; color:var(--grey); }
+
+/* ---------- front page ---------- */
+.topline{ display:flex; justify-content:space-between; font-size:8pt; letter-spacing:.06em; text-transform:uppercase; padding-bottom:1.5mm; border-bottom:.6pt solid #000; }
+.mast{ text-align:center; padding:3mm 0 2mm; border-bottom:3pt double #000; }
+.mast h1{ font-family:var(--serif); font-weight:900; font-size:50pt; line-height:1; letter-spacing:-1pt; }
+.mast p{ font-style:italic; font-size:9pt; color:var(--grey); margin-top:1mm; }
+.strip{ display:grid; grid-template-columns:1fr auto; column-gap:8mm; align-items:center; padding:2mm 0; border-bottom:.6pt solid #000; }
+.strip .wx{ display:flex; align-items:center; gap:4mm; }
+.strip .wx b{ font-family:var(--serif); font-size:20pt; font-weight:900; }
+.strip .count{ border:1.4pt solid #000; padding:1.4mm 3mm; font-family:var(--serif); font-weight:700; font-size:10.5pt; text-align:center; }
+.front{ display:grid; grid-template-columns:1fr 54mm; column-gap:6mm; margin-top:3mm; flex:1; min-height:0; }
+.lead .kicker{ font-family:var(--display); font-size:7.4pt; letter-spacing:.08em; text-transform:uppercase; border-top:2.2pt solid #000; padding-top:1.2mm; }
+.lead h2.hl{ font-family:var(--serif); font-weight:900; font-size:27pt; line-height:1.06; margin:1.5mm 0 2mm; letter-spacing:-.4pt; }
+.lead .stand{ font-style:italic; font-size:10.4pt; line-height:1.35; margin-bottom:2.5mm; }
+.fig{ margin-bottom:2.5mm; }
+.fig .art{ border:1.2pt solid #000; padding:1.5mm; background:#fff; }
+.fig img{ display:block; width:100%; height:64mm; object-fit:cover; filter:grayscale(1) contrast(1.2); }
+.fig svg{ display:block; width:100%; height:auto; }
+.fig figcaption{ font-size:7.8pt; color:var(--grey); margin-top:1mm; font-style:italic; }
+.body{ column-count:2; column-gap:5mm; column-rule:.5pt solid #bbb; text-align:justify; hyphens:auto; font-size:9.8pt; }
+.body p + p{ text-indent:4mm; }
+.side > section{ border-top:2.2pt solid #000; padding-top:1.6mm; margin-bottom:3.2mm; }
+.side h3{ font-family:var(--serif); font-size:11pt; font-weight:700; margin-bottom:1.4mm; }
+.tease{ list-style:none; }
+.tease li{ padding:1.3mm 0; border-bottom:.5pt solid #bbb; font-size:8.8pt; line-height:1.3; }
+.tease li:last-child{ border-bottom:none; }
+.tease b{ font-weight:600; display:block; }
+.tease .pg{ font-size:7.6pt; color:var(--grey); text-transform:uppercase; letter-spacing:.05em; }
+.why{ border:1.4pt solid #000; padding:2.4mm 3mm; font-size:8.8pt; }
+.why b{ font-family:var(--serif); display:block; font-size:10pt; margin-bottom:.8mm; }
+.watch ul{ list-style:none; font-size:8.3pt; }
+.watch li{ padding:.5mm 0; }
+.threat{ margin-top:2mm; padding:1.8mm 3mm; border-top:2.2pt solid #000; border-bottom:.6pt solid #000; font-size:8.6pt; letter-spacing:.01em; text-align:center; font-weight:600; }
+.threat.alert{ border:2.6pt solid #000; background:var(--tint); }
+
+/* ---------- your day ---------- */
+.binding{ display:flex; justify-content:space-between; padding:0 6mm; margin-bottom:3.5mm; }
+.binding i{ width:4mm; height:4mm; border-radius:50%; background:#000; display:block; }
+.dmast{ display:grid; grid-template-columns:auto 1fr; column-gap:7mm; align-items:end; }
+.day{ font-family:var(--display); font-weight:900; font-size:100pt; line-height:.78; letter-spacing:-4pt; margin-left:-1.5mm; }
+.month{ font-family:var(--display); font-weight:700; font-size:22pt; line-height:1; }
+.weekday{ font-family:var(--display); font-weight:400; font-size:13pt; margin-top:1.5mm; }
+.issue{ margin-top:3mm; font-size:8.8pt; color:var(--grey); }
+.issue b{ font-family:var(--display); font-weight:700; color:#000; font-size:10pt; display:block; margin-bottom:.6mm; }
+.sunline{ display:flex; gap:8mm; margin-top:4mm; padding:2mm 0; border-top:2.2pt solid #000; border-bottom:.6pt solid #000; font-size:8.8pt; }
+.sunline span b{ font-family:var(--display); font-weight:700; font-size:9.2pt; margin-left:1.2mm; }
+.sunline .count{ margin-left:auto; }
+.grid{ display:grid; grid-template-columns:1.08fr 1fr; column-gap:9mm; margin-top:4mm; }
+.grid h2{ font-family:var(--display); font-size:11pt; }
+section + section{ margin-top:4mm; }
+.weather{ display:grid; grid-template-columns:auto 1fr; column-gap:5mm; align-items:center; background:var(--tint); padding:3.4mm 4mm; }
+.temp{ font-family:var(--display); font-weight:900; font-size:30pt; line-height:.9; }
+.weather p{ font-size:8.8pt; }
+.tasks{ list-style:none; }
+.tasks li{ display:grid; grid-template-columns:6mm 1fr; column-gap:2.5mm; padding:1.4mm 0; border-bottom:.5pt solid #b5b5b5; }
+.tasks li:last-child{ border-bottom:none; }
+.box{ width:5mm; height:5mm; border:1.2pt solid #000; margin-top:.5mm; }
+.tasks strong{ font-weight:600; display:block; }
+.tasks small{ font-size:8.3pt; color:var(--grey); display:block; }
+.idea{ border:1.6pt solid #000; padding:3.2mm 4mm; }
+.idea .hook{ font-family:var(--display); font-weight:700; font-size:10pt; line-height:1.2; margin:.6mm 0 1.6mm; }
+.idea p{ font-size:8.8pt; }
+.fact{ background:var(--tint); padding:3mm 4mm; }
+.fact p{ font-size:9pt; }
+.fact .src{ font-size:7.8pt; color:var(--grey); margin-top:1mm; }
+.comic{ margin-top:4.5mm; }
+.comic h2{ font-family:var(--display); font-size:11pt; }
+.comic h2 span{ font-family:var(--hand); font-weight:400; font-size:11.5pt; margin-left:2mm; }
+.panels{ display:grid; grid-template-columns:repeat(4,1fr); gap:2mm; }
+.panel{ border:1.6pt solid #000; height:62mm; position:relative; overflow:hidden; }
+.panel svg{ width:100%; height:100%; display:block; }
+.cap{ position:absolute; left:0; top:0; right:0; background:#000; color:#fff; font-family:var(--hand); font-size:11pt; line-height:1.12; padding:1.2mm 1.8mm; }
+svg text{ font-family:var(--hand); }
+.foot{ margin-top:auto; padding-top:3mm; border-top:2.2pt solid #000; display:grid; grid-template-columns:1fr auto; column-gap:8mm; align-items:end; }
+.poem{ font-style:italic; font-size:10.2pt; line-height:1.45; }
+.sign{ font-size:8.2pt; color:var(--grey); text-align:right; }
+
+/* ---------- sections (flowing pages) ---------- */
+.flow{ page:flow; }
+.flow h1.sec{ font-family:var(--serif); font-weight:900; font-size:20pt; border-bottom:3pt double #000; padding-bottom:1mm; margin-bottom:3mm; }
+.incidents{ border:1.6pt solid #000; padding:3mm 4mm; margin-bottom:4mm; }
+.incidents h2{ font-size:14pt; }
+.incidents .threats{ list-style:none; font-size:8.8pt; border-bottom:.6pt solid #000; padding-bottom:2mm; margin-bottom:2mm; }
+.incidents .threats li{ padding:.4mm 0; }
+.incidents .threats li:before{ content:"\25A0\00a0"; font-size:6pt; vertical-align:middle; }
+.istory{ padding:1.4mm 0; border-bottom:.5pt solid #bbb; break-inside:avoid; }
+.istory:last-child{ border-bottom:none; }
+.istory .meta{ font-size:7.9pt; color:var(--grey); }
+.twocol{ display:grid; grid-template-columns:1.25fr 1fr; column-gap:6mm; margin-bottom:4mm; }
+table.launch{ width:100%; border-collapse:collapse; font-size:8.2pt; }
+table.launch th{ text-align:left; border-bottom:1.4pt solid #000; padding:.8mm 1mm; font-family:var(--serif); }
+table.launch td{ border-bottom:.5pt solid #bbb; padding:.9mm 1mm; vertical-align:top; }
+.f1box{ border:1.2pt solid #000; padding:2.5mm 3mm; font-size:8.6pt; }
+.f1box ul{ list-style:none; }
+.f1box h3, .twocol h3{ font-family:var(--serif); font-size:11pt; margin-bottom:1.2mm; }
+.cols{ column-count:2; column-gap:6mm; column-rule:.5pt solid #bbb; }
+.rubric{ break-inside:avoid-column; margin-bottom:3.5mm; }
+.rubric h3{ font-family:var(--display); font-size:8.2pt; letter-spacing:.07em; text-transform:uppercase; border-top:2.2pt solid #000; padding-top:1.2mm; margin-bottom:1.2mm; }
+.story{ break-inside:avoid; padding:1.2mm 0 1.5mm; border-bottom:.5pt solid #bbb; }
+.story:last-child{ border-bottom:none; }
+.story b{ font-weight:600; }
+.story .src{ color:var(--grey); font-size:8pt; }
+.factline{ margin-top:3mm; border-top:2.2pt solid #000; padding-top:1.5mm; font-size:8.6pt; }
+</style>
+</head>
+<body>
+
+<!-- ================= FRONT PAGE ================= -->
+<div class="fixed" id="front">
+  <div class="topline"><span>Vol. I · No. {{ v.issue_no }}</span><span>{{ v.date_long }}</span><span>{{ v.city }}</span></div>
+  <header class="mast"><h1>IVANencial Times</h1><p>All the news that fits on your desk. Circulation: one.</p></header>
+  <div class="strip">
+    <div class="wx">{% if v.weather %}<b>{{ v.weather.now_f }}°F</b><span class="small">High {{ v.weather.high }}, low {{ v.weather.low }}. {{ v.weather.short }}</span>{% endif %}</div>
+    {% if v.countdown %}<div class="count">{{ v.countdown }}</div>{% endif %}
+  </div>
+  <div class="front">
+    <article class="lead">
+      {% if v.lead %}
+      <div class="kicker">{{ v.lead.kicker }}</div>
+      <h2 class="hl">{{ v.lead.headline }}</h2>
+      <p class="stand">{{ v.lead.standfirst }}</p>
+      {% if v.lead.graphic.kind == "illustration" %}
+        <figure class="fig"><div class="art"><img src="{{ v.lead.graphic.src }}" alt=""></div><figcaption>{{ v.lead.graphic.caption }}</figcaption></figure>
+      {% elif v.lead.graphic.kind == "infographic" %}
+        <figure class="fig"><div class="art">{{ v.lead.graphic.svg|safe }}</div>{% if v.lead.graphic.caption %}<figcaption>{{ v.lead.graphic.caption }}</figcaption>{% endif %}</figure>
+      {% endif %}
+      <div class="body">{% for p in v.lead.body %}<p>{{ p }}</p>{% endfor %}</div>
+      <p class="small" style="margin-top:1.5mm">Source: {{ v.lead.source }}</p>
+      {% endif %}
+    </article>
+    <aside class="side">
+      <section><h3>In this issue</h3>
+        <ul class="tease">{% for t in v.teasers %}<li><b>{{ t.headline }}</b><span class="pg">{{ t.section }}{% if t.page %} · p. {{ t.page }}{% endif %}</span></li>{% endfor %}
+          <li><b>Your Day: tasks, comic, poem</b><span class="pg">p. 2</span></li>
+          <li><b>Bay Area Incidents</b><span class="pg">p. 3</span></li></ul>
+      </section>
+      {% if v.lead and v.lead.why %}<section><div class="why"><b>Why it matters to you</b>{{ v.lead.why }}</div></section>{% endif %}
+      <section class="watch"><h3>Threat watch</h3>
+        <ul>{% for line in v.threat_lines[:5] %}<li>{{ line }}</li>{% endfor %}</ul></section>
+    </aside>
+  </div>
+  <div class="threat{% if v.threat_alert %} alert{% endif %}">{{ v.threat_line }}</div>
+</div>
+
+<!-- ================= YOUR DAY ================= -->
+<div class="fixed" id="day">
+  <div class="binding"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <header class="dmast">
+    <div class="day">{{ v.day.num }}</div>
+    <div><div class="month">{{ v.day.month }}</div><div class="weekday">{{ v.day.weekday }}, {{ v.day.year }}</div>
+      <div class="issue"><b>Your Day, Ivan</b>No. {{ v.issue_no }}. Circulation: one. {{ v.city }}</div></div>
+  </header>
+  <div class="sunline">
+    {% if v.weather %}<span>Sunrise<b>{{ v.weather.sunrise }}</b></span><span>Sunset<b>{{ v.weather.sunset }}</b></span><span>Daylight<b>{{ v.weather.daylight }}</b></span>{% endif %}
+    {% if v.countdown %}<span class="count">{{ v.countdown }}</span>{% endif %}
+  </div>
+  <div class="grid">
+    <div>
+      {% if v.weather %}<section><h2>Weather in Burlingame</h2>
+        <div class="weather"><div class="temp">{{ v.weather.now_f }}°</div><p>{{ v.weather.summary }}</p></div></section>{% endif %}
+      {% if v.day.tasks %}<section><h2>To do today</h2>
+        <ul class="tasks">{% for t in v.day.tasks %}<li><span class="box"></span><span><strong>{{ t.title }}</strong><small>{{ t.note }}</small></span></li>{% endfor %}</ul></section>{% endif %}
+    </div>
+    <div>
+      {% if v.day.fact %}<section class="fact"><h2>Dumb but true</h2><p>{{ v.day.fact.text }}</p>{% if v.day.fact.source_name %}<div class="src">Source: {{ v.day.fact.source_name }}</div>{% endif %}</section>{% endif %}
+      {% if v.day.idea %}<section class="idea"><h2>Idea of the day</h2><div class="hook">{{ v.day.idea.hook }}</div><p>{{ v.day.idea.text }}</p></section>{% endif %}
+    </div>
+  </div>
+  {% set c = v.day.comic %}
+  <section class="comic">
+    <h2>Roast of the Day <span>by your printer</span></h2>
+    <div class="panels">
+      <div class="panel"><svg viewBox="0 0 300 300">
+        <defs>
+          <g id="hair"><path d="M-36 -6 C-40 -40 -10 -52 8 -48 C20 -58 44 -40 38 -10 L30 -22 L22 -12 L14 -26 L4 -14 L-6 -28 L-16 -14 L-26 -26 Z" fill="#000"/></g>
+          <g id="head"><circle r="36" fill="#fff" stroke="#000" stroke-width="4"/><use href="#hair"/><path d="M-36 2 q-8 2 -6 12 q2 8 8 4" fill="#fff" stroke="#000" stroke-width="3.5"/></g>
+          <g id="body"><path d="M-34 44 Q-40 100 -30 140 L30 140 Q40 100 34 44 Q0 30 -34 44 Z" fill="#fff" stroke="#000" stroke-width="4"/></g>
+          <g id="printer"><rect x="-52" y="-30" width="104" height="58" rx="6" fill="#fff" stroke="#000" stroke-width="4"/><path d="M-36 -30 L-30 -50 L30 -50 L36 -30" fill="#fff" stroke="#000" stroke-width="4"/><rect x="-34" y="14" width="68" height="6" fill="#000"/><circle cx="-14" cy="-6" r="4.5"/><circle cx="14" cy="-6" r="4.5"/><path d="M-8 6 q8 6 16 0" fill="none" stroke="#000" stroke-width="3"/></g>
+        </defs>
+        <line x1="170" y1="250" x2="300" y2="250" stroke="#000" stroke-width="4"/>
+        <g transform="translate(232 218)"><use href="#printer"/></g>
+        <g transform="translate(80 160)"><use href="#head"/><circle cx="4" cy="-2" r="4"/><circle cx="20" cy="-2" r="4"/><path d="M2 16 q10 6 20 0" fill="none" stroke="#000" stroke-width="3.5"/><use href="#body"/><path d="M30 60 L84 48" stroke="#000" stroke-width="4" stroke-linecap="round"/></g>
+        <path d="M14 22 h170 a12 12 0 0 1 12 12 v34 a12 12 0 0 1 -12 12 h-90 l-12 22 l-2 -22 h-66 a12 12 0 0 1 -12 -12 v-34 a12 12 0 0 1 12 -12z" fill="#fff" stroke="#000" stroke-width="3"/>
+        {{ bubble(104, 48, c.p1.you, 19) }}
+        <path d="M150 96 h138 a10 10 0 0 1 10 10 v40 a10 10 0 0 1 -10 10 h-40 l4 24 l-22 -24 h-80 a10 10 0 0 1 -10 -10 v-40 a10 10 0 0 1 10 -10z" fill="#fff" stroke="#000" stroke-width="3"/>
+        {{ bubble(220, 120, c.p1.printer, 17) }}
+      </svg></div>
+      <div class="panel"><div class="cap">{{ c.p2.caption }}</div><svg viewBox="0 0 300 300">
+        <path d="M20 220 h260 v50 h-260 z" fill="#fff" stroke="#000" stroke-width="4"/><path d="M20 220 v-36 h40 v36 M280 220 v-36 h-40 v36" fill="#fff" stroke="#000" stroke-width="4"/>
+        <path d="M110 220 Q110 186 150 188 L246 194 Q256 206 246 220 Z" fill="#fff" stroke="#000" stroke-width="4"/>
+        <g transform="translate(84 196) rotate(-14)"><use href="#head"/><path d="M-2 -2 h14 M18 -2 h14" stroke="#000" stroke-width="4" stroke-linecap="round"/><path d="M6 18 h16" stroke="#000" stroke-width="3.5" stroke-linecap="round"/></g>
+        <path d="M140 194 L150 150" stroke="#000" stroke-width="4" stroke-linecap="round"/><rect x="138" y="122" width="26" height="40" rx="5" fill="#000"/>
+        <path d="M150 64 h126 a12 12 0 0 1 12 12 v34 a12 12 0 0 1 -12 12 h-80 l-26 26 l6 -26 h-26 a12 12 0 0 1 -12 -12 v-34 a12 12 0 0 1 12 -12z" fill="#fff" stroke="#000" stroke-width="3"/>
+        {{ bubble(212, 90, c.p2.speech, 19) }}
+        <text x="50" y="140" font-size="26">z</text><text x="34" y="116" font-size="20">z</text></svg></div>
+      <div class="panel"><div class="cap">{{ c.p3.caption }}</div><svg viewBox="0 0 300 300">
+        <g transform="translate(150 180)"><use href="#head"/><path d="M-2 -6 q6 -8 12 0 M16 -6 q6 -8 12 0" fill="none" stroke="#000" stroke-width="3.5" stroke-linecap="round"/><path d="M-2 12 q14 18 30 0 z" fill="#000"/><use href="#body"/><path d="M30 56 L64 6" stroke="#000" stroke-width="4" stroke-linecap="round"/><path d="M-30 56 L-60 90" stroke="#000" stroke-width="4" stroke-linecap="round"/></g>
+        <g transform="translate(214 158) rotate(-12)"><path d="M-30 -18 h60 v10 a6 6 0 0 0 0 16 v10 h-60 v-10 a6 6 0 0 0 0 -16z" fill="#fff" stroke="#000" stroke-width="3.5"/><text x="0" y="6" font-size="14" text-anchor="middle">{{ c.p3.prop }}</text></g>
+        <path d="M236 106 l4 -12 l4 12 l12 4 l-12 4 l-4 12 l-4 -12 l-12 -4z M268 140 l3 -8 l3 8 l8 3 l-8 3 l-3 8 l-3 -8 l-8 -3z" fill="#000"/>
+        <path d="M16 70 h132 a12 12 0 0 1 12 12 v34 a12 12 0 0 1 -12 12 h-40 l-6 26 l-20 -26 h-66 a12 12 0 0 1 -12 -12 v-34 a12 12 0 0 1 12 -12z" fill="#fff" stroke="#000" stroke-width="3"/>
+        {{ bubble(82, 96, c.p3.speech, 19) }}</svg></div>
+      <div class="panel"><div class="cap">{{ c.p4.caption }}</div><svg viewBox="0 0 300 300">
+        <path d="M150 90 v120 h130" fill="none" stroke="#000" stroke-width="3"/><path d="M160 106 l26 16 l18 -6 l22 34 l18 -4 l24 46" fill="none" stroke="#000" stroke-width="5" stroke-linejoin="round"/><path d="M268 182 l14 12 l-18 4z" fill="#000"/>
+        <g transform="translate(80 186)"><use href="#head"/><circle cx="6" cy="-2" r="4"/><circle cx="22" cy="-2" r="4"/><path d="M0 -14 l12 4 M28 -14 l-12 4" stroke="#000" stroke-width="3.5" stroke-linecap="round"/><path d="M4 20 q10 -8 20 0" fill="none" stroke="#000" stroke-width="3.5"/><use href="#body"/><path d="M30 58 L60 40" stroke="#000" stroke-width="4" stroke-linecap="round"/></g>
+        <path d="M12 70 h124 a12 12 0 0 1 12 12 v34 a12 12 0 0 1 -12 12 h-48 l-10 24 l-10 -24 h-56 a12 12 0 0 1 -12 -12 v-34 a12 12 0 0 1 12 -12z" fill="#fff" stroke="#000" stroke-width="3"/>
+        {{ bubble(74, 96, c.p4.speech, 19) }}</svg></div>
+    </div>
+  </section>
+  <footer class="foot">
+    <p class="poem">{% for line in v.day.poem %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+    <p class="sign">Printed by Tito<br>at {{ v.built_at }} PT</p>
+  </footer>
+</div>
+
+<!-- ================= SECTIONS ================= -->
+<div class="flow" id="flow">
+  <h1 class="sec">Bay Area Incidents</h1>
+  <div class="incidents">
+    <h2>Threat desk</h2>
+    <ul class="threats">{% for line in v.incidents.lines %}<li>{{ line }}</li>{% endfor %}</ul>
+    {% for s in v.incidents.stories %}
+      <div class="istory"><b>{{ s.headline }}</b> {{ s.summary }}
+        <div class="meta">{% if s.where %}{{ s.where }}{% endif %}{% if s.status %} · {{ s.status }}{% endif %} · {{ s.source }}</div></div>
+    {% endfor %}
+  </div>
+  {% if v.launches or v.f1 %}
+  <div class="twocol">
+    <div>{% if v.launches %}<h3>Launch calendar, next 7 days (PT)</h3>
+      <table class="launch"><tr><th>When</th><th>Rocket</th><th>Mission</th><th>Pad</th></tr>
+      {% for l in v.launches %}<tr><td>{{ l.when }}</td><td>{{ l.rocket }}</td><td>{{ l.mission }}</td><td>{{ l.pad_short }}</td></tr>{% endfor %}</table>{% endif %}</div>
+    <div>{% if v.f1 %}<div class="f1box"><h3>Formula 1</h3>
+      {% if v.f1.next %}<p><b>Next: {{ v.f1.next.name }}</b>, {{ v.f1.next.locality }}</p>
+        <ul>{% for s in v.f1.next.sessions %}<li>{{ s.name }}: {{ s.when }} PT</li>{% endfor %}</ul>{% endif %}
+      {% if v.f1.last %}<p style="margin-top:1.5mm"><b>Last: {{ v.f1.last.name }}</b></p><ul>{% for p in v.f1.last.podium %}<li>{{ loop.index }}. {{ p }}</li>{% endfor %}</ul>{% endif %}
+      {% if v.f1.standings %}<p style="margin-top:1.5mm"><b>Standings</b></p><ul>{% for r in v.f1.standings %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+    </div>{% endif %}</div>
+  </div>
+  {% endif %}
+  <div class="cols">
+    {% for sec in v.sections %}
+    <div class="rubric"><h3>{{ sec.title }}</h3>
+      {% for s in sec.stories %}<div class="story"><b>{{ s.headline }}.</b> {{ s.summary }} <span class="src">{{ s.source }}</span></div>{% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+</body>
+</html>

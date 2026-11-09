@@ -146,6 +146,20 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             library=library,
         )
     carlos = CarlosAgent(llm=llm, store=store) if settings.openai_api_key else None
+    gazeta = None
+    if settings.gazeta_ready() and todoist:
+        from toy_lair_assistant.gazeta.job import GazetaJob
+
+        gazeta = GazetaJob(
+            settings=settings,
+            clock=clock,
+            store=store,
+            todoist=todoist,
+            calendar=calendar,
+            notify=notify,
+        )
+        if notify is not None:
+            notify.gazeta = gazeta
     app = create_app(
         settings,
         clock=clock,
@@ -160,6 +174,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         carlos=carlos,
         library=library,
     )
+    app.state.gazeta = gazeta
     if agent and notify and todoist and calendar:
         app.state.scheduler = Scheduler(
             todoist=todoist,
@@ -172,6 +187,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             settings=settings,
             task_sync=task_sync,
             day_planner=day_planner,
+            gazeta=gazeta,
         )
     return app
 

@@ -22,7 +22,9 @@ class Scheduler:
         settings: Any = None,
         task_sync: Any = None,
         day_planner: Any = None,
+        gazeta: Any = None,
     ) -> None:
+        self.gazeta = gazeta
         self.todoist = todoist
         self.calendar = calendar
         self.store = store
@@ -42,6 +44,7 @@ class Scheduler:
         sent += self._deadlines(now)
         sent += self._nudges(now)
         sent += self._briefing(now)
+        sent += self._gazeta(now)
         sent += self._custom(now)
         self._maybe_sync(now)
         return sent
@@ -203,6 +206,24 @@ class Scheduler:
         self._send("\n".join(lines), buttons=buttons)
         self.store.mark(key)
         return 1
+
+    def _gazeta(self, now: datetime) -> int:
+        if self.gazeta is None:
+            return 0
+        hour = int(getattr(self.settings, "gazeta_hour", 7))
+        if now.hour < hour or now.hour >= 12:
+            return 0
+        day = now.date().isoformat()
+        if self.store.seen(f"gazeta:done:{day}"):
+            return 0
+        for attempt in range(3):
+            key = f"gazeta:try:{day}:{attempt}"
+            if not self.store.seen(key):
+                if self.gazeta.start(on_demand=False):
+                    self.store.mark(key)
+                    return 1
+                return 0
+        return 0
 
     def _custom(self, now: datetime) -> int:
         count = 0

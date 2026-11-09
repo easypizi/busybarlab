@@ -59,6 +59,21 @@ class Settings(BaseSettings):
     remind_nudge_hours: int = 3
     task_sync_interval_seconds: float = 300
     collector_token: str = ""
+    gazeta_enabled: bool = True
+    gazeta_hour: int = 7
+    gazeta_max_pages: int = 6
+    gazeta_model: str = ""
+    gazeta_image_model: str = "gpt-image-2"
+    gazeta_start_date: str = "2026-11-09"
+    gazeta_email_to: str = ""
+    gmail_user: str = ""
+    gmail_app_password: str = ""
+
+    def gazeta_model_name(self) -> str:
+        return self.gazeta_model or self.openai_model
+
+    def gazeta_ready(self) -> bool:
+        return bool(self.gazeta_enabled and self.openai_api_key)
 
     def creation_origin(self) -> str:
         url = self.creation_public_url.strip()

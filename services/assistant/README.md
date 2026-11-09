@@ -45,6 +45,12 @@ GitHub Pages is optional, if you want a non-herokuapp.com origin. The `pages` wo
 
 Zayka: set `ZAYKA_DIR`, `ZAYKA_SYNC_ENABLED=true`, and `ZAYKA_REPO_URL=https://<fine-grained-pat>@github.com/easypizi/zayka.git`. The vault is cloned on boot and pulled every hour. Tests skip that pull. Do not index `40 Areas/sensitive`. Paco pushes notes, so that token needs write access to `easypizi/zayka`. When the token expires, Telegram gets one message that day: `Zayka GitHub token expired. Update ZAYKA_REPO_URL.` A failed save on the r1 says the same thing. A failed push also sends the note text to Telegram, because the dyno clone does not survive a restart. The local vault updates through the `app.toy_lair.zayka-pull` LaunchAgent (`deploy/launchd/install.sh zayka-pull`). macOS blocks `/bin/bash` from `~/Documents`, so that installer builds a signed helper and the agent runs the pull through it.
 
+## IVANencial Times
+
+Daily English B/W A4 newspaper. Built at 07:00 PT (`GAZETA_HOUR`) and on `/gazeta`, sent to Ostanovka as a PDF and to Gmail. Needs `OPENAI_API_KEY` and `TODOIST_API_TOKEN`. Email needs `GMAIL_USER` and `GMAIL_APP_PASSWORD` (also used for the inbox read). `GAZETA_MODEL` defaults to `OPENAI_MODEL`, use a stronger model for the editor. Manual run without delivery: `python -m toy_lair_assistant.gazeta --out issue.pdf`. Layout preview without any API: `PYTHONPATH=. python -c "from toy_lair_assistant.gazeta.layout import sample, render; open('p.pdf','wb').write(render.render(sample.sample_view())[0])"`.
+
+Rendering uses Playwright Chromium. After `pip install -r requirements.txt` run `playwright install chromium`. On Heroku (stack heroku-24) the `Aptfile` carries the Chromium libraries and `bin/post_compile` installs Chromium into the slug. Set config var `PLAYWRIGHT_BROWSERS_PATH=0` so runtime finds it, plus `GMAIL_USER`, `GMAIL_APP_PASSWORD` and `GAZETA_MODEL`. Dyno is Basic (512 MB), watch for R14 on the first run.
+
 ## Google OAuth (once)
 
 Create a Desktop OAuth client. Keep Audience in **Testing**, add your Gmail as a test user. Do not publish: Calendar is a sensitive scope and unverified production returns 403. Put `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`, then run `python -m toy_lair_assistant.google_auth` from `services/assistant`. Store the printed `GOOGLE_REFRESH_TOKEN`. Testing refresh tokens expire after 7 days. When they die, Telegram gets one `Calendar auth expired` message that day.
