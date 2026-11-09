@@ -16,7 +16,8 @@ def build_message(sender: str, to: str, subject: str, body: str, pdf: bytes, fil
     msg["From"] = sender
     msg["To"] = to
     msg["Subject"] = subject
-    msg.set_content(body)
+    if body:
+        msg.set_content(body)
     msg.add_attachment(pdf, maintype="application", subtype="pdf", filename=filename)
     return msg
 

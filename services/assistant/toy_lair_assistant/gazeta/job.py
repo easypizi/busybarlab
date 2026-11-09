@@ -25,6 +25,7 @@ from .state import GazetaState
 log = logging.getLogger(__name__)
 
 DEFAULT_DAY = {"tasks": [], "idea": None, "poem": ["The fog rolls in at seven,", "the printer hums along,", "the writers are on vacation,", "so here is half a song."], "comic": writer.DEFAULT_COMIC}
+PRINT_CALLBACK = "gazeta:print"
 EMPTY_ISSUE = {"lead": None, "teasers": [], "sections": [], "incidents": {"stories": []}}
 
 
@@ -220,6 +221,16 @@ class GazetaJob:
 
     # ---- delivery ----
 
+    def can_print(self) -> bool:
+        s = self.settings
+        return bool(s.gazeta_printer_email and s.gmail_user and s.gmail_app_password)
+
+    def print_pdf(self, pdf: bytes, filename: str) -> None:
+        if not self.can_print():
+            raise RuntimeError("printer email or Gmail credentials are not set")
+        s = self.settings
+        self.send_email(s.gmail_user, s.gmail_app_password, s.gazeta_printer_email, filename, "", pdf, filename)
+
     def _links(self, issue: dict) -> list[str]:
         rows: list[tuple[str, dict]] = []
         if issue.get("lead"):
@@ -235,9 +246,10 @@ class GazetaJob:
         links = self._links(issue)
         caption = f"IVANencial Times, {now.strftime('%B %-d')}. {info['pages']} pages."
         errors: list[str] = []
+        buttons = [[{"text": "🖨 Print", "callback_data": PRINT_CALLBACK}]] if self.can_print() else None
         if self.notify is not None:
             try:
-                self.notify.voice("tito").send_document(pdf, filename, caption)
+                self.notify.voice("tito").send_document(pdf, filename, caption, buttons=buttons)
                 if links:
                     self.notify.voice("tito").send_message("Sources\n" + "\n".join(links)[:3800], preview=False)
             except Exception as exc:

@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     gazeta_image_model: str = "gpt-image-2"
     gazeta_start_date: str = "2026-11-09"
     gazeta_email_to: str = ""
+    gazeta_printer_email: str = ""
     gmail_user: str = ""
     gmail_app_password: str = ""
 

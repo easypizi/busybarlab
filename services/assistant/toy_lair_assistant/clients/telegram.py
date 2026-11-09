@@ -155,8 +155,14 @@ class Voice:
     ) -> None:
         self.bot.send_message(f"**{self.label}**\n{text}", buttons=buttons, photo=photo, preview=preview)
 
-    def send_document(self, data: bytes, filename: str, caption: str = "") -> None:
-        self.bot.send_document(data, filename, f"**{self.label}**\n{caption}" if caption else "")
+    def send_document(
+        self,
+        data: bytes,
+        filename: str,
+        caption: str = "",
+        buttons: list[list[dict[str, str]]] | None = None,
+    ) -> None:
+        self.bot.send_document(data, filename, f"**{self.label}**\n{caption}" if caption else "", buttons=buttons)
 
 
 class TelegramBot:
@@ -237,7 +243,13 @@ class TelegramBot:
             payload["reply_markup"] = markup
         self.sender(payload)
 
-    def send_document(self, data: bytes, filename: str, caption: str = "") -> None:
+    def send_document(
+        self,
+        data: bytes,
+        filename: str,
+        caption: str = "",
+        buttons: list[list[dict[str, str]]] | None = None,
+    ) -> None:
         payload: dict[str, Any] = {
             "_method": "sendDocument",
             "chat_id": self.chat_id,
@@ -247,6 +259,8 @@ class TelegramBot:
         if caption:
             payload["caption"] = to_html(caption)
             payload["parse_mode"] = "HTML"
+        if buttons:
+            payload["reply_markup"] = json.dumps({"inline_keyboard": buttons})
         self.sender(payload)
 
     def handle_update(self, update: dict, agent: Any, speech: Any, paco: Any = None) -> None:
@@ -385,6 +399,21 @@ class TelegramBot:
         else:
             self.voice("tito").send_message("The paper is already on the press.")
 
+    def _print_paper(self, message: dict) -> None:
+        document = message.get("document") or {}
+        tito = self.voice("tito")
+        if self.gazeta is None or not document.get("file_id"):
+            tito.send_message("Nothing to print here.")
+            return
+        try:
+            pdf = self.downloader(document["file_id"])
+            self.gazeta.print_pdf(pdf, document.get("file_name") or "IVANencial-Times.pdf")
+        except Exception as exc:
+            log.exception("print failed")
+            tito.send_message(f"The printer did not get it: {str(exc)[:200]}")
+            return
+        tito.send_message("Sent to the printer.")
+
     def _to(self, who: str, text: str, agent: Any, paco: Any) -> None:
         if who == "paco":
             self._paco_reply(paco, text)
@@ -519,6 +548,9 @@ class TelegramBot:
             }
         )
         data = str(query.get("data") or "")
+        if data == "gazeta:print":
+            self._print_paper(message)
+            return
         if data.startswith("to:"):
             self._route_choice(data, message, agent, paco)
             return

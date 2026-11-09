@@ -253,3 +253,56 @@ def test_send_pdf_logs_in_and_sends():
 
     delivery.send_pdf("me@gmail.com", "pw", "", "S", "B", b"x", "f.pdf", connect=Smtp)
     assert log == [("connect", "smtp.gmail.com", 465), ("login", "me@gmail.com", "pw"), ("send", "me@gmail.com")]
+
+
+def test_document_has_print_button_when_printer_set(patched):
+    job, sent, _, _ = build(make_settings(gazeta_printer_email="printer@hpeprint.com"))
+    job.run()
+    doc = [p for p in sent if p.get("_method") == "sendDocument"][0]
+    assert json.loads(doc["reply_markup"]) == {"inline_keyboard": [[{"text": "🖨 Print", "callback_data": "gazeta:print"}]]}
+
+
+def test_no_print_button_without_printer(patched):
+    job, sent, _, _ = build()
+    job.run()
+    doc = [p for p in sent if p.get("_method") == "sendDocument"][0]
+    assert "reply_markup" not in doc
+
+
+def test_print_pdf_mails_printer_with_empty_body(patched):
+    job, _, emails, _ = build(make_settings(gazeta_printer_email="printer@hpeprint.com"))
+    job.print_pdf(b"%PDF", "IVANencial-Times-2026-11-09.pdf")
+    user, password, to, subject, body, pdf, name = emails[0]
+    assert to == "printer@hpeprint.com" and body == "" and pdf == b"%PDF"
+
+
+def test_print_button_downloads_document_and_prints():
+    sent, printed, downloads = [], [], []
+
+    class G:
+        def print_pdf(self, pdf, name):
+            printed.append((pdf, name))
+
+    bot = TelegramBot(token="t", chat_id="1", sender=lambda p: sent.append(p), downloader=lambda fid: downloads.append(fid) or b"%PDF", gazeta=G())
+    query = {"id": "q", "data": "gazeta:print", "message": {"chat": {"id": 1}, "document": {"file_id": "F1", "file_name": "paper.pdf"}}}
+    bot.handle_update({"callback_query": query}, None, None)
+    assert downloads == ["F1"] and printed == [(b"%PDF", "paper.pdf")]
+    assert "Sent to the printer" in sent[-1]["text"]
+
+
+def test_print_failure_is_reported():
+    sent = []
+
+    class G:
+        def print_pdf(self, pdf, name):
+            raise RuntimeError("smtp down")
+
+    bot = TelegramBot(token="t", chat_id="1", sender=lambda p: sent.append(p), downloader=lambda fid: b"%PDF", gazeta=G())
+    query = {"id": "q", "data": "gazeta:print", "message": {"chat": {"id": 1}, "document": {"file_id": "F1"}}}
+    bot.handle_update({"callback_query": query}, None, None)
+    assert "smtp down" in sent[-1]["text"]
+
+
+def test_email_without_body_has_only_the_pdf():
+    msg = delivery.build_message("a@x", "b@x", "S", "", b"%PDF-1", "p.pdf")
+    assert [p.get_content_type() for p in msg.walk()] == ["multipart/mixed", "application/pdf"]
