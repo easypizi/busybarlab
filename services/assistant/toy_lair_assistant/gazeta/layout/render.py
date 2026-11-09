@@ -24,6 +24,9 @@ FONTS = [
     ("Unbounded", "normal", 700, "unbounded-latin-700-normal.woff2"),
     ("Unbounded", "normal", 900, "unbounded-latin-900-normal.woff2"),
     ("Neucha", "normal", 400, "neucha-latin-400-normal.woff2"),
+    ("Bodoni Moda", "normal", 700, "bodoni-moda-latin-700-normal.woff2"),
+    ("Bodoni Moda", "normal", 900, "bodoni-moda-latin-900-normal.woff2"),
+    ("Bodoni Moda", "italic", 400, "bodoni-moda-latin-400-italic.woff2"),
 ]
 OVERFLOW_JS = """() => {
   const f = document.querySelector('#front');

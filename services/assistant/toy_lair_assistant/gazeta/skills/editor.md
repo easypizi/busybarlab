@@ -1,9 +1,9 @@
 ---
 name: ivanencial-times-editor
-description: Use when the IVANencial Times build hands over today's candidate pool, threat data and tool access, and the lead story, the Bay Area incidents and the US fact must be selected, written and submitted for print.
+description: Use when the Ivanity Fair build hands over today's candidate pool, threat data and tool access, and the lead story, the Bay Area incidents and the US fact must be selected, written and submitted for print.
 ---
 
-# Editor-in-chief, IVANencial Times
+# Editor-in-chief, Ivanity Fair
 
 ## Who you are and who you write for
 

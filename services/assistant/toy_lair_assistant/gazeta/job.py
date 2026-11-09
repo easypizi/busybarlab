@@ -145,7 +145,7 @@ class GazetaJob:
             puzzles=puzzles,
         )
         pdf, info = self.render_pdf(view, self.settings.gazeta_max_pages)
-        filename = f"IVANencial-Times-{today.isoformat()}.pdf"
+        filename = f"Ivanity-Fair-{today.isoformat()}.pdf"
         self._deliver(now, pdf, filename, info, issue)
         self.last_pdf = pdf
         if not on_demand and self.store is not None:
@@ -291,7 +291,7 @@ class GazetaJob:
 
     def _deliver(self, now: datetime, pdf: bytes, filename: str, info: dict, issue: dict) -> None:
         links = self._links(issue)
-        caption = f"IVANencial Times, {now.strftime('%B %-d')}. {info['pages']} pages."
+        caption = f"Ivanity Fair, {now.strftime('%B %-d')}. {info['pages']} pages."
         errors: list[str] = []
         buttons = [[{"text": "🖨 Print", "callback_data": PRINT_CALLBACK}]] if self.can_print() else None
         if self.notify is not None:
@@ -308,7 +308,7 @@ class GazetaJob:
                     self.settings.gmail_user,
                     self.settings.gmail_app_password,
                     self.settings.gazeta_email_to or self.settings.gmail_user,
-                    f"IVANencial Times, {now.strftime('%A, %B %-d')}",
+                    f"Ivanity Fair, {now.strftime('%A, %B %-d')}",
                     caption + "\n\nSources\n" + "\n".join(links),
                     pdf,
                     filename,

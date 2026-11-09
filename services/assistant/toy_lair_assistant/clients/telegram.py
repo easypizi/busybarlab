@@ -34,7 +34,7 @@ def _forwarded(message: dict) -> bool:
 COMMANDS = [
     {"command": "today", "description": "Today's tasks and events"},
     {"command": "week", "description": "Next 7 days"},
-    {"command": "gazeta", "description": "IVANencial Times, today's issue"},
+    {"command": "gazeta", "description": "Ivanity Fair, today's issue"},
     {"command": "plan", "description": "List of lines, Tito slots them"},
     {"command": "tito", "description": "Say it to Tito"},
     {"command": "paco", "description": "Say it to Paco"},
@@ -50,7 +50,7 @@ HELP = (
     "/today: day card\n"
     "/week: week by day\n"
     "/plan: list of lines\n"
-    "/gazeta: IVANencial Times, PDF in chat and email\n"
+    "/gazeta: Ivanity Fair, PDF in chat and email\n"
     "Tito, ...\n"
     "/tito ...\n\n"
     "**Paco**\n"
@@ -407,7 +407,7 @@ class TelegramBot:
             return
         try:
             pdf = self.downloader(document["file_id"])
-            self.gazeta.print_pdf(pdf, document.get("file_name") or "IVANencial-Times.pdf")
+            self.gazeta.print_pdf(pdf, document.get("file_name") or "Ivanity-Fair.pdf")
         except Exception as exc:
             log.exception("print failed")
             tito.send_message(f"The printer did not get it: {str(exc)[:200]}")

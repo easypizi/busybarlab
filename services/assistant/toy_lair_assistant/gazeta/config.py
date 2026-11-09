@@ -1,11 +1,11 @@
-"""Static configuration for IVANencial Times: reader location and feed catalog."""
+"""Static configuration for Ivanity Fair: reader location and feed catalog."""
 
 from __future__ import annotations
 
 LAT = 37.5841
 LON = -122.3661
 CITY = "Burlingame, CA"
-USER_AGENT = "IVANencialTimes/1.0 (https://github.com/easypizi/busybarlab)"
+USER_AGENT = "IvanityFair/1.0 (https://github.com/easypizi/busybarlab)"
 
 BAY_COUNTIES = {
     "alameda", "contra costa", "marin", "napa", "san francisco",

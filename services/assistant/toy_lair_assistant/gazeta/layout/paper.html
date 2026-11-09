@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>IVANencial Times {{ v.date_short }}</title>
+<title>Ivanity Fair {{ v.date_short }}</title>
 <style>
 {% for f in fonts %}@font-face{font-family:'{{ f.family }}';font-style:{{ f.style }};font-weight:{{ f.weight }};src:url('{{ f.url }}') format('woff2');}
 {% endfor %}
 @page { size: A4; margin: 0; }
 @page flow { size: A4; margin: 13mm 14mm 17mm;
-  @bottom-center { content: "IVANencial Times  ·  {{ v.date_short }}  ·  p. " counter(page); font-family: 'Literata', Georgia, serif; font-size: 8pt; color: #555; } }
+  @bottom-center { content: "Ivanity Fair  ·  {{ v.date_short }}  ·  p. " counter(page); font-family: 'Literata', Georgia, serif; font-size: 8pt; color: #555; } }
 :root{ --ink:#000; --grey:#5e5e5e; --tint:#ececec; --paper:#fff;
-  --serif:'Playfair Display', Georgia, serif; --text:'Literata', Georgia, serif; --display:'Unbounded','Arial Black',sans-serif; --hand:'Neucha','Comic Sans MS',cursive; }
+  --serif:'Playfair Display', Georgia, serif; --text:'Literata', Georgia, serif; --display:'Unbounded','Arial Black',sans-serif; --hand:'Neucha','Comic Sans MS',cursive; --didone:'Bodoni Moda','Playfair Display',Georgia,serif; }
 *{ box-sizing:border-box; margin:0; padding:0; }
 html,body{ background:#fff; color:#000; }
 body{ font-family:var(--text); font-size:9.2pt; line-height:1.4; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
@@ -19,10 +19,14 @@ h2{ font-family:var(--serif); font-weight:700; font-size:12.5pt; line-height:1.1
 .small{ font-size:8.3pt; color:var(--grey); }
 
 /* ---------- front page ---------- */
-.topline{ display:flex; justify-content:space-between; font-size:8pt; letter-spacing:.06em; text-transform:uppercase; padding-bottom:1.5mm; border-bottom:.6pt solid #000; }
-.mast{ text-align:center; padding:1.6mm 0 1.4mm; border-bottom:3pt double #000; }
-.mast h1{ font-family:var(--serif); font-weight:900; font-size:42pt; line-height:1; letter-spacing:-1pt; }
-.mast p{ font-style:italic; font-size:9pt; color:var(--grey); margin-top:1mm; }
+.cover-top{ display:grid; grid-template-columns:1fr auto; align-items:end; column-gap:6mm; padding-bottom:1mm; border-bottom:.5pt solid #000; }
+.cover-top .tag{ font-family:var(--didone); font-style:italic; font-size:8.8pt; color:var(--grey); padding-bottom:1mm; }
+.barcode{ width:27mm; white-space:nowrap; text-align:center; }
+.barcode svg{ display:block; width:23mm; margin:0 auto; height:auto; }
+.barcode .cap{ font-family:var(--display); font-size:4.8pt; letter-spacing:.06em; text-transform:uppercase; margin-top:.4mm; }
+.mast{ text-align:center; padding:1mm 0 .6mm; }
+.mast h1{ font-family:var(--didone); font-weight:900; font-size:56pt; line-height:.98; letter-spacing:-1.6pt; }
+.issue-line{ display:flex; justify-content:space-between; font-family:var(--display); font-size:6.4pt; letter-spacing:.16em; text-transform:uppercase; padding:1.2mm 0; border-top:.5pt solid #000; border-bottom:3pt double #000; }
 .dayband{ display:grid; grid-template-columns:auto 1fr auto; column-gap:6mm; align-items:center; padding:2mm 0; border-bottom:.6pt solid #000; }
 .dnum{ display:flex; align-items:flex-end; gap:3mm; }
 .dnum .day{ font-family:var(--display); font-weight:900; font-size:46pt; line-height:.8; letter-spacing:-2pt; }
@@ -52,12 +56,14 @@ h2{ font-family:var(--serif); font-weight:700; font-size:12.5pt; line-height:1.1
 .side > section{ border-top:2.2pt solid #000; padding-top:1.6mm; margin-bottom:3.2mm; }
 .side h3{ font-family:var(--serif); font-size:11pt; font-weight:700; margin-bottom:1.4mm; }
 .tease{ list-style:none; }
-.tease li{ padding:1.3mm 0; border-bottom:.5pt solid #bbb; font-size:8.8pt; line-height:1.3; }
+.tease li{ padding:1.4mm 0; border-bottom:.5pt solid #bbb; line-height:1.2; }
 .tease li:last-child{ border-bottom:none; }
-.tease b{ font-weight:600; display:block; }
-.tease .pg{ font-size:7.6pt; color:var(--grey); text-transform:uppercase; letter-spacing:.05em; }
-.why{ border:1.4pt solid #000; padding:2.4mm 3mm; font-size:8.8pt; }
-.why b{ font-family:var(--serif); display:block; font-size:10pt; margin-bottom:.8mm; }
+.tease .k{ display:block; font-family:var(--display); font-size:6pt; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+.tease b{ font-family:var(--didone); font-style:italic; font-weight:400; font-size:10.4pt; display:block; margin-top:.5mm; }
+.tease .k em{ float:right; font-style:normal; font-family:var(--text); font-weight:400; letter-spacing:.04em; color:var(--grey); font-size:7pt; }
+.tease .pg{ font-size:7pt; color:var(--grey); text-transform:uppercase; letter-spacing:.06em; }
+.why{ border-top:3pt double #000; border-bottom:3pt double #000; padding:2.2mm 1mm; font-family:var(--didone); font-style:italic; font-size:9.4pt; line-height:1.35; }
+.why b{ font-family:var(--display); font-style:normal; font-weight:700; text-transform:uppercase; letter-spacing:.1em; display:block; font-size:6.2pt; margin-bottom:1mm; }
 .watch ul{ list-style:none; font-size:8.3pt; }
 .watch li{ padding:.5mm 0; }
 .threat{ margin-top:2mm; padding:1.8mm 3mm; border-top:2.2pt solid #000; border-bottom:.6pt solid #000; font-size:8.6pt; letter-spacing:.01em; text-align:center; font-weight:600; }
@@ -142,8 +148,12 @@ table.launch td{ border-bottom:.5pt solid #bbb; padding:.9mm 1mm; vertical-align
 
 <!-- ================= FRONT PAGE ================= -->
 <div class="fixed" id="front">
-  <div class="topline"><span>Vol. I · No. {{ v.issue_no }}</span><span>{{ v.date_long }}</span><span>{{ v.city }}</span></div>
-  <header class="mast"><h1>IVANencial Times</h1><p>All the news that fits on your desk. Circulation: one.</p></header>
+  <div class="cover-top">
+    <p class="tag">All the news that fits on your desk. Circulation: one.</p>
+    <div class="barcode">{{ v.barcode|safe }}<div class="cap">No. {{ v.issue_no }} · {{ v.date_short }}</div></div>
+  </div>
+  <header class="mast"><h1>Ivanity Fair</h1></header>
+  <div class="issue-line"><span>Vol. I · No. {{ v.issue_no }}</span><span>{{ v.date_long }}</span><span>{{ v.city }}</span></div>
   <div class="dayband">
     <div class="dnum"><span class="day">{{ v.day.num }}</span><div><div class="month">{{ v.day.month }}</div><div class="weekday">{{ v.day.weekday }}</div></div></div>
     <div class="wx">{% if v.weather %}<b>{{ v.weather.now_c }}°C</b><p>{{ v.weather.summary }}</p>{% endif %}</div>
@@ -166,10 +176,10 @@ table.launch td{ border-bottom:.5pt solid #bbb; padding:.9mm 1mm; vertical-align
       {% endif %}
     </article>
     <aside class="side">
-      <section><h3>In this issue</h3>
-        <ul class="tease">{% for t in v.teasers %}<li><b>{{ t.headline }}</b><span class="pg">{{ t.section }}{% if t.page %} · p. {{ t.page }}{% endif %}</span></li>{% endfor %}
-          <li><b>Bay Area Incidents</b><span class="pg">p. 2</span></li>
-          {% if v.puzzles %}<li><b>Puzzles &amp; Pastimes</b><span class="pg">{% if v.puzzles_page %}p. {{ v.puzzles_page }}{% else %}last page{% endif %}</span></li>{% endif %}</ul>
+      <section><h3>Cover lines</h3>
+        <ul class="tease">{% for t in v.teasers %}<li><span class="k">{{ t.section }}<em{% if not t.page %} style="visibility:hidden"{% endif %}>p. {{ t.page or 0 }}</em></span><b>{{ t.headline }}</b></li>{% endfor %}
+          <li><span class="k">Threat desk<em>p. 2</em></span><b>Bay Area Incidents</b></li>
+          {% if v.puzzles %}<li><span class="k">After hours<em{% if not v.puzzles_page %} style="visibility:hidden"{% endif %}>p. {{ v.puzzles_page or 0 }}</em></span><b>Puzzles &amp; Pastimes</b></li>{% endif %}</ul>
       </section>
       {% if v.lead and v.lead.why %}<section><div class="why"><b>Why it matters to you</b>{{ v.lead.why }}</div></section>{% endif %}
       <section class="watch"><h3>Threat watch</h3>

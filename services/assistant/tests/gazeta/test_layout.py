@@ -81,7 +81,7 @@ def test_cap_flow_drops_from_longest():
 def test_html_has_no_unfilled_placeholders():
     html = render.render_html(sample.sample_view())
     assert "{{" not in html and "{%" not in html
-    assert "IVANencial Times" in html and "Bay Area Incidents" in html
+    assert "Ivanity Fair" in html and "Bay Area Incidents" in html
 
 
 def test_missing_lead_and_graphic_do_not_break_template():
@@ -123,3 +123,9 @@ def test_render_overflow_trims_front(chromium):
     import io
 
     assert len(PdfReader(io.BytesIO(pdf)).pages[0].extract_text()) > 200
+
+
+def test_front_page_has_brand_and_barcode():
+    html = render.render_html(sample.sample_view())
+    assert "IVANencial" not in html and "Ivanity Fair" in html
+    assert 'class="barcode"' in html and "Cover lines" in html and "Bodoni Moda" in html

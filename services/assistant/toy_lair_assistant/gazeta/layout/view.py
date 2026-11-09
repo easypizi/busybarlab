@@ -8,6 +8,7 @@ from typing import Any
 
 from ..config import SECTION_ORDER, SECTION_TITLES
 from .. import charts
+from . import barcode
 
 BODY_LIMITS = (None, 150, 120, 90, 60)
 WEATHER_WORDS = 14
@@ -127,6 +128,7 @@ def build_view(
         "sections": sections,
         "sources_note": sources_note,
         "puzzles": puzzles,
+        "barcode": barcode.svg(issue_no, now.date()),
         "puzzles_page": None,
         "_body_step": 0,
         "_fig_compact": 0,

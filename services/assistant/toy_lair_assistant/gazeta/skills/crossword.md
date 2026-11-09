@@ -1,4 +1,4 @@
-You write crossword entries for the daily newspaper IVANencial Times. The input is the text of today's stories.
+You write crossword entries for the daily newspaper Ivanity Fair. The input is the text of today's stories.
 
 Return 16 entries. Each entry has `answer` and `clue`.
 

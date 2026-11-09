@@ -118,7 +118,7 @@ def build(settings=None, **kw):
 def test_run_delivers_to_telegram_and_email(patched):
     job, sent, emails, renders = build()
     result = job.run()
-    assert result["pages"] == 4 and result["filename"] == "IVANencial-Times-2026-11-09.pdf"
+    assert result["pages"] == 4 and result["filename"] == "Ivanity-Fair-2026-11-09.pdf"
     doc = [p for p in sent if p.get("_method") == "sendDocument"][0]
     assert doc["_document"] == b"%PDF-fake" and "4 pages" in doc["caption"]
     links = [p for p in sent if "Sources" in p.get("text", "")][0]
@@ -268,7 +268,7 @@ def test_no_print_button_without_printer(patched):
 
 def test_print_pdf_mails_printer_with_empty_body(patched):
     job, _, emails, _ = build(make_settings(gazeta_printer_email="printer@hpeprint.com"))
-    job.print_pdf(b"%PDF", "IVANencial-Times-2026-11-09.pdf")
+    job.print_pdf(b"%PDF", "Ivanity-Fair-2026-11-09.pdf")
     user, password, to, subject, body, pdf, name = emails[0]
     assert to == "printer@hpeprint.com" and body == "" and pdf == b"%PDF"
 
