@@ -71,7 +71,21 @@ FEEDS: dict[str, list[tuple[str, str]]] = {
         ("EN World", "https://www.enworld.org/forums/-/index.rss"),
         ("D&D Beyond", "https://www.dndbeyond.com/posts.rss"),
     ],
-    "dnb": [("UKF", "https://ukf.com/feed")],
+    "dnb": [("UKF", "https://ukf.com/feed/")],
+}
+
+# section id -> (min, max) stories the desk may print
+SECTION_LIMITS: dict[str, tuple[int, int]] = {
+    "ai_applied": (2, 5),
+    "ai_dev": (2, 4),
+    "space": (2, 4),
+    "f1": (1, 3),
+    "gadgets": (1, 3),
+    "bay_area": (2, 4),
+    "russia": (2, 3),
+    "tech_jobs": (1, 3),
+    "dnd": (0, 2),
+    "dnb": (0, 2),
 }
 
 SECTION_TITLES = {

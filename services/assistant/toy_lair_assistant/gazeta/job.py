@@ -11,6 +11,7 @@ from typing import Any
 
 from . import delivery, fallback_facts, illustrator, writer
 from .config import CITY, SECTION_TITLES
+from .desk import Desk
 from .editor import Editor, EditorError
 from .layout import render as render_mod
 from .layout import view as view_mod
@@ -24,7 +25,7 @@ from .state import GazetaState
 
 log = logging.getLogger(__name__)
 
-DEFAULT_DAY = {"tasks": [], "idea": None, "poem": ["The fog rolls in at seven,", "the printer hums along,", "the writers are on vacation,", "so here is half a song."], "comic": writer.DEFAULT_COMIC}
+DEFAULT_DAY = {"tasks": [], "idea": None, "poem": ["The fog rolls in at seven,", "the printer hums along,", "the writers are on vacation,", "so here is half a song."]}
 PRINT_CALLBACK = "gazeta:print"
 EMPTY_ISSUE = {"lead": None, "teasers": [], "sections": [], "incidents": {"stories": []}}
 
@@ -175,19 +176,37 @@ class GazetaJob:
         }
         pool = data["pool"] or {}
         fact = None
-        issue = EMPTY_ISSUE
+        issue = dict(EMPTY_ISSUE)
+        model = self.settings.gazeta_model_name()
         if pool:
-            editor = Editor(self.client, self.settings.gazeta_model_name(), http_mod.client(), now)
+            editor = Editor(self.client, model, http_mod.client(), now)
             for attempt in range(2):
                 try:
                     result = editor.run(context, pool, used)
-                    issue, fact = result.issue, result.fact
+                    issue, fact = dict(result.issue), result.fact
+                    log.info("gazeta editor: %s tool calls, dropped %s", result.tool_calls, [(d["reason"], d["headline"][:50]) for d in result.dropped])
                     break
                 except EditorError as exc:
                     log.warning("editor attempt %s failed: %s", attempt + 1, exc)
+            issue["sections"] = self._desk(model, now, pool, issue)
+            issue["teasers"] = self._teasers(issue["sections"])
         if fact is None:
             fact = fallback_facts.pick(used)
         return issue, fact
+
+    def _desk(self, model: str, now: datetime, pool: dict, issue: dict) -> list[dict]:
+        taken = [s for s in [issue.get("lead")] if s] + list(issue.get("incidents", {}).get("stories", []))
+        urls = {s["url"] for s in taken}
+        titles = [s["headline"] for s in taken]
+        try:
+            return Desk(self.client, model, http_mod.client(), now).run(pool, urls, titles)
+        except Exception as exc:
+            log.warning("desk failed: %s", exc)
+            return []
+
+    @staticmethod
+    def _teasers(sections: list[dict]) -> list[dict]:
+        return [{"headline": sec["stories"][0]["headline"], "section": sec["id"]} for sec in sections[:3]]
 
     def _write(self, now: datetime, data: dict, tasks: list, countdown: str | None, threats: dict, issue: dict) -> dict:
         today = now.date().isoformat()

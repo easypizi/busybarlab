@@ -306,3 +306,45 @@ def test_print_failure_is_reported():
 def test_email_without_body_has_only_the_pdf():
     msg = delivery.build_message("a@x", "b@x", "S", "", b"%PDF-1", "p.pdf")
     assert [p.get_content_type() for p in msg.walk()] == ["multipart/mixed", "application/pdf"]
+
+
+def test_desk_sections_and_code_made_teasers_reach_the_view(patched, monkeypatch):
+    seen = {}
+
+    class FakeDesk:
+        def __init__(self, *a, **k):
+            pass
+
+        def run(self, pool, urls, titles):
+            seen["urls"], seen["titles"] = urls, titles
+            story = {"headline": "Desk story", "summary": "S", "url": "https://d/1", "source": "D", "published": ""}
+            return [{"id": "space", "title": "Space", "stories": [story]}, {"id": "f1", "title": "Formula 1", "stories": [story]}]
+
+    monkeypatch.setattr(job_mod, "Desk", FakeDesk)
+    job, _, _, renders = build()
+    job.run()
+    view = renders[0]
+    assert [s["id"] for s in view["sections"]] == ["space", "f1"]
+    assert [t["headline"] for t in view["teasers"]] == ["Desk story", "Desk story"]
+    assert "https://a/1" in seen["urls"] and "https://a/3" in seen["urls"] and "Lead" in seen["titles"]
+
+
+def test_desk_crash_still_prints_lead_and_incidents(patched, monkeypatch):
+    class Boom:
+        def __init__(self, *a, **k):
+            pass
+
+        def run(self, *a):
+            raise RuntimeError("desk down")
+
+    monkeypatch.setattr(job_mod, "Desk", Boom)
+    job, _, _, renders = build()
+    job.run()
+    assert renders[0]["sections"] == [] and renders[0]["lead"]["headline"] == "Lead"
+    assert renders[0]["incidents"]["stories"]
+
+
+def test_day_sheet_has_no_comic(patched):
+    job, _, _, renders = build()
+    job.run()
+    assert "comic" not in renders[0]["day"]

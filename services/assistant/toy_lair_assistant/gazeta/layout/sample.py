@@ -75,12 +75,6 @@ def sample_view(stories_per_section: int = 3, body_paragraphs: int = 4) -> dict:
         "tasks": [{"title": f"Task {i}", "note": "from Todoist, due today"} for i in range(1, 6)],
         "idea": {"hook": "Build a tiny tool for the thing you do twice a week.", "text": "Pick one repeated chore, time it for a week, then spend one evening automating the worst ten minutes of it."},
         "poem": ["The fog rolls in at seven,", "the printer hums along,", "your day is mostly planned,", "the rest is just a song."],
-        "comic": {
-            "p1": {"you": ["Print me a", "good morning"], "printer": ["Define good."]},
-            "p2": {"caption": "Meanwhile, at 6:58 AM", "speech": ["Five more", "minutes."]},
-            "p3": {"caption": "The ticket arrives", "speech": ["It says", "I'm late."], "prop": "7:00 AM"},
-            "p4": {"caption": "Productivity curve", "speech": ["Trending", "down."]},
-        },
     }
     launches = [
         {"when": "Mon Nov 9, 8:14 PM", "rocket": "Falcon 9", "mission": "Starlink 12-30", "pad": "Space Launch Complex 4E, Vandenberg SFB, CA, USA"},

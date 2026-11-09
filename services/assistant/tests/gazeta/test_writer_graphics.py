@@ -11,12 +11,6 @@ def draft(**over):
         "tasks": [{"title": "Reply to Anna", "note": "Mail, due Fri", "origin": "mail"}],
         "idea": {"hook": "h", "text": "t"},
         "poem": ["a", "b", "c", "d"],
-        "comic": {
-            "p1": {"you": ["Build my paper"], "printer": ["Done. Get up."]},
-            "p2": {"caption": "Snoozed five times.", "speech": ["Five more min"]},
-            "p3": {"caption": "Bought a plan.", "speech": ["I am a planner"], "prop": "365 days"},
-            "p4": {"caption": "Went once.", "speech": ["Weather did it"]},
-        },
     }
     out.update(over)
     return out
@@ -37,31 +31,28 @@ def test_valid_draft_has_no_violations():
 
 
 def test_violations_reported():
-    bad = draft()
-    bad["comic"]["p1"]["you"] = ["this line is far too long"]
-    bad["comic"]["p3"]["prop"] = "way too long prop"
-    bad["poem"] = ["a", "b"]
+    bad = draft(poem=["a", "b"], tasks=[{"title": "t", "note": "n", "origin": "mail"}] * 6)
     found = writer.violations(bad)
-    assert any("p1.you" in v for v in found) and any("p3.prop" in v for v in found) and any("poem" in v for v in found)
+    assert any("poem" in v for v in found) and any("tasks" in v for v in found)
 
 
 def test_retry_feeds_violations_back_and_stops_when_clean():
-    bad = draft()
-    bad["comic"]["p2"]["speech"] = ["x" * 30]
-    client = FakeClient([bad, draft()])
+    client = FakeClient([draft(poem=["a"]), draft()])
     out = writer.write(client, "m", {"name": "Ivan"})
     assert writer.violations(out) == []
     assert len(client.users) == 2 and "broke these limits" in client.users[1]
 
 
-def test_broken_comic_is_replaced_after_retries():
-    bad = draft()
-    bad["comic"]["p4"]["speech"] = ["this is much longer than sixteen", "second", "third"]
+def test_still_broken_after_retries_is_trimmed():
+    bad = draft(poem=["a", "b", "c", "d", "e"])
     client = FakeClient([bad, bad, bad])
     out = writer.write(client, "m", {})
-    assert writer.violations(out) == []
-    assert len(client.users) == 3
-    assert out["comic"] == writer.DEFAULT_COMIC
+    assert out["poem"] == ["a", "b", "c", "d"] and len(client.users) == 3
+
+
+def test_dashes_and_semicolons_are_cleaned():
+    out = writer.write(FakeClient([draft(poem=["phone rings\u2014call", "b;", "c", "d"])]), "m", {})
+    assert "\u2014" not in out["poem"][0] and ";" not in out["poem"][1]
 
 
 POINTS = [{"label": "Mon", "value": 3, "source": "s"}, {"label": "Tue", "value": 9, "source": "s"}, {"label": "Wed launch of something long", "value": 5, "source": "s"}]

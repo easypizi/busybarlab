@@ -9,22 +9,27 @@ from typing import Any
 from ..config import SECTION_ORDER, SECTION_TITLES
 from .. import charts
 
-BODY_LIMITS = (170, 140, 110, 85, 60)
+BODY_LIMITS = (None, 150, 120, 90, 60)
 WEATHER_WORDS = 14
 
 
-def _words(text: str, limit: int) -> str:
+def _words(text: str, limit: int | None) -> str:
+    """Cut to at most `limit` words on a sentence boundary. No ellipsis."""
+    if limit is None:
+        return text
     words = text.split()
     if len(words) <= limit:
         return text
     cut = " ".join(words[:limit])
-    last = max(cut.rfind(". "), cut.rfind("? "), cut.rfind("! "))
-    if last > len(cut) * 0.5:
+    last = max(cut.rfind(". "), cut.rfind("? "), cut.rfind("! "), cut.rfind(".\u201d "))
+    if last > 0:
         return cut[: last + 1]
-    return cut.rstrip(",;:") + "…"
+    return cut.rstrip(",;:") + "."
 
 
-def _trim_body(paragraphs: list[str], limit: int) -> list[str]:
+def _trim_body(paragraphs: list[str], limit: int | None) -> list[str]:
+    if limit is None:
+        return list(paragraphs)
     out: list[str] = []
     left = limit
     for para in paragraphs:
@@ -115,7 +120,6 @@ def build_view(
             "tasks": tasks,
             "idea": day.get("idea"),
             "poem": day.get("poem", []),
-            "comic": day["comic"],
             "fact": fact,
         },
         "incidents": {"lines": list(threats.get("lines", [])), "stories": list(issue.get("incidents", {}).get("stories", []))},

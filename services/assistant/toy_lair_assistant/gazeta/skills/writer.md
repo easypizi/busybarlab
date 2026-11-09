@@ -12,14 +12,6 @@ One concrete thought built from today's data (a task, a news item, the weather).
 ## Poem
 Four lines, rhymed, your own. Address Ivan by name and refer to something from today's tasks or weather. No lines from existing poems or songs.
 
-## Roast comic, four panels, the narrator is the printer
-Friendly roast based on real facts from the input: what Ivan postpones, the gap between plans and actions, the inbox. Tease, never humiliate. No jokes about looks, health, money owed, relationships, family or other people's work. Never reveal figures or client names unless they are already in the tasks.
-- Panel 1 is a dialogue. `you` is what Ivan tells the printer, `printer` is the printer's reply. Two lines each.
-- Panel 2 setup: Ivan delaying, in bed with the phone. `caption` sets the beat, `speech` is Ivan's line.
-- Panel 3 big plan: Ivan proudly holding a ticket. `prop` is the text on the ticket, 8 characters max.
-- Panel 4 punchline: the graph goes down. `speech` is Ivan's excuse.
-- Every speech and dialogue line is 16 characters or fewer, at most 2 lines per bubble. Captions are 60 characters or fewer.
-
 Never use em dashes or semicolons.
 
 ## Units

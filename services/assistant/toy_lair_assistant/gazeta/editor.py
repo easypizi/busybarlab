@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from toy_lair_assistant.collector.enrich import html_to_text
+from toy_lair_assistant.gazeta.articles import fetch_article
 from toy_lair_assistant.gazeta.config import BAY_PLACES, SECTION_TITLES
 from toy_lair_assistant.gazeta.state import norm
 
@@ -20,7 +20,6 @@ WINDOW_HOURS = 36
 MAX_FACT_CHARS = 220
 MAX_STORIES = 5
 GRAPHIC_TYPES = {"bar", "line", "map", "timeline"}
-ARTICLE_LIMIT = 4000
 
 
 class EditorError(RuntimeError):
@@ -199,7 +198,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "name": "submit_issue",
-        "description": "Submit the finished issue. Call once at the end.",
+        "description": "Submit the lead story and the incidents. Rubric sections are written by the desk, not by you. Call once at the end.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -232,21 +231,6 @@ TOOLS: list[dict[str, Any]] = [
                     },
                     "required": ["headline", "standfirst", "body", "why", "url", "source", "published", "graphic"],
                 },
-                "teasers": {
-                    "type": "array",
-                    "items": {"type": "object", "properties": {"headline": {"type": "string"}, "section": {"type": "string"}}, "required": ["headline", "section"]},
-                },
-                "sections": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string", "enum": list(SECTION_TITLES)},
-                            "stories": {"type": "array", "items": {"type": "object", "properties": STORY_PROPS, "required": ["headline", "summary", "url", "source", "published"]}},
-                        },
-                        "required": ["id", "stories"],
-                    },
-                },
                 "incidents": {
                     "type": "object",
                     "properties": {
@@ -259,7 +243,7 @@ TOOLS: list[dict[str, Any]] = [
                 },
                 "dropped": {"type": "array", "items": {"type": "object", "properties": {"headline": {"type": "string"}, "reason": {"type": "string"}}, "required": ["headline", "reason"]}},
             },
-            "required": ["lead", "teasers", "sections", "incidents"],
+            "required": ["lead", "incidents"],
         },
     },
 ]
@@ -379,16 +363,12 @@ class Editor:
         if not url.startswith(("http://", "https://")):
             return {"error": "url must be http(s)"}
         try:
-            response = self.http.get(url)
-            response.raise_for_status()
+            final, text = fetch_article(self.http, url)
         except Exception as exc:
             return {"error": f"fetch failed: {exc}"}
         self.ledger.read.add(url)
-        final = str(response.url)
         self.ledger.read.add(final)
-        kind = response.headers.get("content-type", "")
-        text = html_to_text(response.text) if "html" in kind else response.text
-        return {"url": url, "text": text[:ARTICLE_LIMIT]}
+        return {"url": url, "text": text}
 
     def _submit_fact(self, args: dict) -> Any:
         text = clean_text(str(args.get("text") or "").strip())

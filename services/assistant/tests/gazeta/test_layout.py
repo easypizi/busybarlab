@@ -4,13 +4,15 @@ from toy_lair_assistant.gazeta.layout import render, sample
 from toy_lair_assistant.gazeta.layout import view as V
 
 
-def test_body_limit_cuts_on_sentence_and_steps_down():
+def test_first_render_is_not_trimmed_and_steps_cut_whole_sentences():
     v = sample.sample_view(1, 6)
+    full = sum(len(p.split()) for p in v["lead"]["body"])
     V.apply_body_limit(v)
-    first = sum(len(p.split()) for p in v["lead"]["body"])
-    assert first <= V.BODY_LIMITS[0]
+    assert sum(len(p.split()) for p in v["lead"]["body"]) == full
     assert V.shrink_front(v)
-    assert sum(len(p.split()) for p in v["lead"]["body"]) <= V.BODY_LIMITS[1]
+    body = v["lead"]["body"]
+    assert 0 < sum(len(p.split()) for p in body) <= V.BODY_LIMITS[1]
+    assert all(p.rstrip().endswith((".", "?", "!")) and "…" not in p for p in body)
 
 
 def test_shrink_front_runs_out():
