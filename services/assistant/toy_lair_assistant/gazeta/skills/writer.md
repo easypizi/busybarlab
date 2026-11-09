@@ -23,4 +23,4 @@ Friendly roast based on real facts from the input: what Ivan postpones, the gap 
 Never use em dashes or semicolons.
 
 ## Units
-Temperature stays in °F. Everything else is metric: km, km/h, mm, kg, hectares, liters. Convert units from articles (miles, acres, feet, pounds, gallons) and round sensibly. Never print imperial units except temperature.
+Code prints the big current temperature in °F. In your text everything is metric, temperature included: °C, km, km/h, mm, kg, hectares, liters. Convert units from articles (°F, miles, acres, feet, pounds, gallons) and round sensibly. Never print imperial units.

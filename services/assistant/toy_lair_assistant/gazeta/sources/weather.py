@@ -1,4 +1,4 @@
-"""Open-Meteo forecast for the reader's point, in Fahrenheit, wind in km/h."""
+"""Open-Meteo forecast for the reader's point, in Fahrenheit for the headline figure, Celsius and km/h in the text."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ URL = "https://api.open-meteo.com/v1/forecast"
 
 
 def _fmt(f: float) -> str:
-    return f"{round(f)}°F"
+    return f"{round((f - 32) * 5 / 9)}°C"
 
 
 def parse(data: dict, today: str) -> dict:

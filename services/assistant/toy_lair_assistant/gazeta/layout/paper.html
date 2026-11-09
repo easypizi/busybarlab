@@ -182,7 +182,7 @@ table.launch td{ border-bottom:.5pt solid #bbb; padding:.9mm 1mm; vertical-align
   <div class="grid">
     <div>
       {% if v.weather %}<section><h2>Weather in Burlingame</h2>
-        <div class="weather"><div class="temp">{{ v.weather.now_f }}°</div><p>{{ v.weather.summary }}</p></div></section>{% endif %}
+        <div class="weather"><div class="temp">{{ v.weather.now_f }}°F</div><p>{{ v.weather.summary }}</p></div></section>{% endif %}
       {% if v.day.tasks %}<section><h2>To do today</h2>
         <ul class="tasks">{% for t in v.day.tasks %}<li><span class="box"></span><span><strong>{{ t.title }}</strong><small>{{ t.note }}</small></span></li>{% endfor %}</ul></section>{% endif %}
     </div>

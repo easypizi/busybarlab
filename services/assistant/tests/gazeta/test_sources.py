@@ -70,11 +70,11 @@ def test_weather_parse():
         },
     }
     out = weather.parse(data, "2026-11-08")
-    assert out["high"] == "68°F"
-    assert "km/h" in out["summary"] and "°C" not in out["summary"]
+    assert out["high"] == "20°C"
+    assert "km/h" in out["summary"] and "°F" not in out["summary"]
     assert out["sunrise"] == "6:42 AM" and out["sunset"] == "5:03 PM"
     assert out["daylight"] == "10 h 21 min"
-    assert "Morning 54°F" in out["summary"]
+    assert "Morning 12°C" in out["summary"]
 
 
 def test_launches_parse_converts_to_pt():

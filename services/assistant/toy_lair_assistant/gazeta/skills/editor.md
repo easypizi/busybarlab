@@ -153,7 +153,7 @@ Plain English, second person, short sentences, active voice.
 - Headline: your own words, active verb, specifics, sentence case. Form: "Company X ships Y that transcribes speech twice as fast". Not the form: "Revolutionary AI breakthrough changes everything".
 - "What it means": one sentence about the consequence for Ivan. Restating the headline does not count.
 - Source: name of the outlet.
-- Typography: curly quotes, numbers with commas (12,500), times in PT, temperatures in °F with °C in parentheses. Never use em dashes or semicolons, rebuild the sentence instead.
+- Typography: curly quotes, numbers with commas (12,500), times in PT, temperatures in °C. Never use em dashes or semicolons, rebuild the sentence instead.
 - Banned words: "delve", "game-changer", "revolutionary", "groundbreaking", "landscape", "unlock", "seamless", "robust", "it's worth noting", "in today's fast-paced world".
 
 ## Checklist before `submit_issue`
@@ -173,4 +173,4 @@ Plain English, second person, short sentences, active voice.
 `submit_issue` takes JSON matching the schema in code: `lead`, `teasers`, `sections`, `incidents`, `dropped`. Each story carries `headline`, `summary`, `url`, `source` and `published`, copied from the opened article. In `dropped`, list strong candidates you rejected with a one-sentence reason. This goes to the log, not to print.
 
 ## Units
-Temperature stays in °F. Everything else is metric: km, km/h, mm, kg, hectares, liters. Convert units from articles (miles, acres, feet, pounds, gallons) and round sensibly. Never print imperial units except temperature.
+Code prints the big current temperature in °F. In your text everything is metric, temperature included: °C, km, km/h, mm, kg, hectares, liters. Convert units from articles (°F, miles, acres, feet, pounds, gallons) and round sensibly. Never print imperial units.
