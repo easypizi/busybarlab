@@ -41,13 +41,10 @@ class Client:
         self.calls = []
 
     def chat_json(self, model, system, user, schema, name):
+        if name == "crossword_clues":
+            return {"entries": []}
         self.calls.append(("chat_json", json.loads(user)))
-        return {
-            "tasks": [{"title": "Pay rent", "note": "Todoist, due today", "origin": "todoist"}],
-            "idea": {"hook": "Hook.", "text": "Text."},
-            "poem": ["a", "b", "c", "d"],
-            "comic": sample.sample_view()["day"]["comic"],
-        }
+        return {"idea": {"hook": "Hook.", "text": "Text."}, "poem": ["a", "b", "c", "d"]}
 
     def image(self, model, prompt, size):
         return b"\x89PNG"
@@ -86,6 +83,8 @@ def patched(monkeypatch):
     monkeypatch.setattr(job_mod.threats_src, "fetch", lambda *a: {"summary": "Quiet.", "lines": ["l"], "alert_active": False})
     monkeypatch.setattr(job_mod.launches_src, "fetch", lambda *a: [])
     monkeypatch.setattr(job_mod.f1_src, "fetch", lambda *a: {"next": None, "last": None, "standings": []})
+    monkeypatch.setattr(job_mod.chess_daily, "fetch", lambda http: None)
+    monkeypatch.setattr(job_mod.onthisday_src, "fetch", lambda http, today: [{"year": 1975, "text": "Something happened."}])
     monkeypatch.setattr(job_mod.feeds, "fetch_all", lambda *a: {"space": [{"title": "t"}]})
     FakeEditor.weather_args = seen_args
     return FakeEditor
@@ -109,7 +108,6 @@ def build(settings=None, **kw):
         calendar=Cal(),
         notify=bot,
         client=Client(),
-        fetch_mail=lambda u, p: [{"subject": "Sign form", "from": "a", "date": "", "snippet": ""}],
         send_email=lambda *a: emails.append(a),
         render_pdf=render,
         **kw,
@@ -135,9 +133,8 @@ def test_writer_gets_real_inputs(patched):
     job.run()
     assert patched.weather_args[0][1] == "2026-11-09"
     ctx = job.client.calls[0][1]
-    assert ctx["tasks"][0]["content"] == "Pay rent"
+    assert "tasks" not in ctx and "mail_last_48h" not in ctx
     assert ctx["calendar_today"][0]["title"] == "Dentist"
-    assert ctx["mail_last_48h"][0]["subject"] == "Sign form"
 
 
 def test_editor_failure_falls_back_to_curated_fact(patched):
@@ -344,7 +341,56 @@ def test_desk_crash_still_prints_lead_and_incidents(patched, monkeypatch):
     assert renders[0]["incidents"]["stories"]
 
 
-def test_day_sheet_has_no_comic(patched):
+def test_front_gets_a_picture_even_when_editor_picks_none(patched):
     job, _, _, renders = build()
     job.run()
-    assert "comic" not in renders[0]["day"]
+    graphic = renders[0]["lead"]["graphic"]
+    assert graphic["kind"] == "illustration" and graphic["src"].startswith("data:image/png")
+
+
+def test_second_engraving_goes_to_first_rubric(patched, monkeypatch):
+    class FakeDesk:
+        def __init__(self, *a, **k):
+            pass
+
+        def run(self, pool, urls, titles):
+            story = {"headline": "Desk story", "summary": "S", "url": "https://d/1", "source": "D", "published": ""}
+            return [{"id": "space", "title": "Space", "stories": [story]}]
+
+    monkeypatch.setattr(job_mod, "Desk", FakeDesk)
+    job, _, _, renders = build()
+    job.run()
+    assert renders[0]["sections"][0]["art"].startswith("data:image/png")
+
+
+def test_puzzles_reach_the_view_and_answers_are_stored(patched):
+    job, _, _, renders = build()
+    job.run()
+    p = renders[0]["puzzles"]
+    assert p["sudoku"] and len(p["sudoku"]["grid"]) == 9
+    assert p["onthisday"][0]["year"] == 1975 and p["yesterday"] is None
+    stored = job.store.get_plan("gazeta:state")["answers"]["2026-11-09"]
+    assert stored["sudoku"] and "crossword" in stored or "sudoku" in stored
+
+
+def test_yesterdays_answers_are_shown(patched):
+    job, _, _, renders = build()
+    job.store.save_plan("gazeta:state", {"answers": {"2026-11-08": {"sudoku": [[1] * 9] * 9}}}, NOW)
+    job.run()
+    assert renders[0]["puzzles"]["yesterday"]["sudoku"][0][0] == 1
+
+
+def test_puzzle_failure_does_not_stop_the_paper(patched, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("puzzles down")
+
+    monkeypatch.setattr(job_mod.puzzles_daily, "assemble", boom)
+    job, _, _, renders = build()
+    job.run()
+    assert renders[0]["puzzles"] is None
+
+
+def test_day_sheet_is_gone(patched):
+    job, _, _, renders = build()
+    job.run()
+    assert "tasks" not in renders[0]["day"] and "comic" not in renders[0]["day"]

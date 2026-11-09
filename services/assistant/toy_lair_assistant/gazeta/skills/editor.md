@@ -98,13 +98,13 @@ The lead story has four parts:
 3. Body, 120–180 words.
 4. A "Why it matters to you" paragraph.
 
-Pick the graphic to fit the story:
+Every front page has a graphic. Pick the one that fits the story:
 
 | Form | When | What you submit |
 |---|---|---|
 | `infographic` | The story is about numbers, place or time: quake map, layoffs chart, standings table, mission timeline. | Type (`bar`, `line`, `map`, `timeline`), title, 3–12 data points. Every point has a source from `threats`, provided data or an article you read. |
 | `illustration` | The story is about an idea or an event without good data: a new model, a discovery, a policy decision. | A prompt for the illustrator: a metaphorical scene in newspaper engraving style, black-and-white hatching, no text, no logos, no recognizable real people. No photorealism: the image must never pass for a photo of the event. |
-| `none` | The lead story involves deaths or injuries. | Nothing, or only a location map. |
+| (any story with deaths or injuries) | Still pick a form. Use an `infographic` (location map, timeline) or a restrained `illustration` of the place or an object, never victims, injuries or violence. | Same as above. |
 
 If the last two front pages in `recent_graphics` used the same form and both forms fit today, pick the other one.
 

@@ -24,7 +24,7 @@ def _fmt(value: float) -> str:
 
 
 def _clip(text: str, limit: int) -> str:
-    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+    return text if len(text) <= limit else text[:limit].rstrip()
 
 
 def bar(points: list[dict], title: str = "") -> str:

@@ -5,7 +5,7 @@ from __future__ import annotations
 LAT = 37.5841
 LON = -122.3661
 CITY = "Burlingame, CA"
-USER_AGENT = "IVANencialTimes/1.0 (personal newspaper; github.com/easypizi)"
+USER_AGENT = "IVANencialTimes/1.0 (https://github.com/easypizi/busybarlab)"
 
 BAY_COUNTIES = {
     "alameda", "contra costa", "marin", "napa", "san francisco",

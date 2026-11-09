@@ -72,7 +72,6 @@ def sample_view(stories_per_section: int = 3, body_paragraphs: int = 4) -> dict:
             stories.append(_story(n, "Example Source"))
         issue["sections"].append({"id": sid, "stories": stories})
     day = {
-        "tasks": [{"title": f"Task {i}", "note": "from Todoist, due today"} for i in range(1, 6)],
         "idea": {"hook": "Build a tiny tool for the thing you do twice a week.", "text": "Pick one repeated chore, time it for a week, then spend one evening automating the worst ten minutes of it."},
         "poem": ["The fog rolls in at seven,", "the printer hums along,", "your day is mostly planned,", "the rest is just a song."],
     }
@@ -103,5 +102,22 @@ def sample_view(stories_per_section: int = 3, body_paragraphs: int = 4) -> dict:
         launches=launches,
         f1=f1,
         image_src=None,
+        puzzles=sample_puzzles(),
         sources_note="Sources are linked in the Telegram message.",
     )
+
+
+def sample_puzzles() -> dict:
+    from datetime import date
+
+    from ..puzzles import chess_daily, crossword, sudoku
+
+    pairs = [(w, f"Clue for {w.lower()}") for w in ("QUAKE", "POLICE", "BURLINGAME", "SPACEX", "NVIDIA", "FERRARI", "GOOGLE", "ROSNEFT")]
+    chess = chess_daily.build({"puzzle": {"fen": "r1bqk2r/1p1n1pb1/4p1p1/1P1pP2p/pB1P1PQP/3B1N2/1P4P1/3K3R w kq - 0 1", "solution": ["g4e6", "f7e6", "d3g6"], "rating": 2124}})
+    return {
+        "crossword": crossword.build(pairs, seed=1, seconds=0.5),
+        "sudoku": sudoku.make(date(2026, 11, 9)),
+        "chess": chess,
+        "onthisday": [{"year": 1202, "text": "The Siege of Zara began in present-day Croatia."}, {"year": 1975, "text": "The MPLA defeated the FNLA at the Battle of Quifangondo."}],
+        "yesterday": {"crossword": {"across": [[1, "QUAKE"], [4, "POLICE"]], "down": [[2, "GOOGLE"]]}, "sudoku": sudoku.make(date(2026, 11, 9))["solution"], "chess": chess["solution"]},
+    }

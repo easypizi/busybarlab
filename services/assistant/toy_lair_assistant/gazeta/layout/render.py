@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import time
 from pathlib import Path
 from typing import Any
 
@@ -24,11 +25,19 @@ FONTS = [
     ("Unbounded", "normal", 900, "unbounded-latin-900-normal.woff2"),
     ("Neucha", "normal", 400, "neucha-latin-400-normal.woff2"),
 ]
-OVERFLOW_JS = """() => ({
-  front: document.querySelector('#front').scrollHeight - document.querySelector('#front').clientHeight,
-  day: document.querySelector('#day').scrollHeight - document.querySelector('#day').clientHeight,
-  sideFront: (() => { const f = document.querySelector('#front .front'); return f.scrollHeight - f.clientHeight; })(),
-})"""
+OVERFLOW_JS = """() => {
+  const f = document.querySelector('#front');
+  const cols = f.querySelector('.front');
+  const room = cols.clientHeight;
+  const used = (el) => el.lastElementChild ? el.lastElementChild.getBoundingClientRect().bottom - el.getBoundingClientRect().top : 0;
+  const p = document.querySelector('#puzzles');
+  return {
+    front: f.scrollHeight - f.clientHeight,
+    lead: used(cols.querySelector('.lead')) - room,
+    side: used(cols.querySelector('.side')) - room,
+    puzzles: p ? p.scrollHeight - p.clientHeight : 0,
+  };
+}"""
 
 _env = Environment(loader=FileSystemLoader(HERE), autoescape=select_autoescape(["html"]))
 
@@ -61,7 +70,21 @@ def _print(page: Any, view: dict) -> tuple[bytes, dict]:
     return pdf, over
 
 
-def render(view: dict, max_pages: int = 6) -> tuple[bytes, dict]:
+def render(view: dict, max_pages: int = 6, attempts: int = 4) -> tuple[bytes, dict]:
+    """Chromium sometimes dies on a heavy page, so a crashed driver gets a fresh start."""
+    last: Exception | None = None
+    for _ in range(attempts):
+        try:
+            return _render_once(view, max_pages)
+        except Exception as exc:
+            if "playwright" not in type(exc).__module__ and "Connection closed" not in str(exc) and "Target" not in str(exc):
+                raise
+            last = exc
+            time.sleep(1.5)
+    raise last  # type: ignore[misc]
+
+
+def _render_once(view: dict, max_pages: int = 6) -> tuple[bytes, dict]:
     """Returns (pdf, info). View is trimmed in place. Info has pages and trims."""
     from playwright.sync_api import sync_playwright
 
@@ -73,31 +96,39 @@ def render(view: dict, max_pages: int = 6) -> tuple[bytes, dict]:
             page = browser.new_page()
             for _ in range(80):
                 pdf, over = _print(page, view)
-                if over["front"] > 1 or over["sideFront"] > 1:
-                    if V.shrink_front(view):
+                if over["lead"] > 1 or over["side"] > 1 or over["front"] > 1:
+                    if over["lead"] > 1:
+                        step = V.shrink_lead(view)
+                    elif over["side"] > 1:
+                        step = V.shrink_side(view)
+                    else:
+                        step = False
+                    step = step or V.shrink_front(view)
+                    if step:
                         info["trims"].append("front")
                         continue
-                if over["day"] > 1:
-                    if V.shrink_day(view):
-                        info["trims"].append("day")
+                if over["puzzles"] > 1:
+                    if V.shrink_puzzles(view):
+                        info["trims"].append("puzzles")
                         continue
                 if page_count(pdf) > max_pages:
                     if V.cap_flow(view):
                         info["trims"].append("flow")
                         continue
                 break
-            # second pass: fill page numbers for teasers
+            # second pass: fill page numbers for teasers and the puzzles page
             texts = page_texts(pdf)
+            body_pages = texts[1:-1] if view.get("puzzles") else texts[1:]
             for t in view["teasers"]:
                 key = V.norm(t["headline"])[:24]
-                for i, text in enumerate(texts[2:], start=3):
+                for i, text in enumerate(body_pages, start=2):
                     if key and key in text:
                         t["page"] = i
                         break
-            before = len(view["teasers"])
             view["teasers"] = [t for t in view["teasers"] if t["page"]]
-            if any(t["page"] for t in view["teasers"]) or len(view["teasers"]) != before:
-                pdf, _ = _print(page, view)
+            if view.get("puzzles"):
+                view["puzzles_page"] = page_count(pdf)
+            pdf, _ = _print(page, view)
         finally:
             browser.close()
     info["pages"] = page_count(pdf)

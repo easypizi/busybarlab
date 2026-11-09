@@ -212,7 +212,7 @@ TOOLS: list[dict[str, Any]] = [
                         "graphic": {
                             "type": "object",
                             "properties": {
-                                "kind": {"type": "string", "enum": ["infographic", "illustration", "none"]},
+                                "kind": {"type": "string", "enum": ["infographic", "illustration"]},
                                 "type": {"type": "string", "enum": sorted(GRAPHIC_TYPES)},
                                 "title": {"type": "string"},
                                 "caption": {"type": "string"},

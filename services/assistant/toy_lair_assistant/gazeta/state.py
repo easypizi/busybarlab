@@ -9,6 +9,7 @@ from typing import Any
 KEY = "gazeta:state"
 KEEP_FACTS = 400
 KEEP_GRAPHICS = 7
+KEEP_ANSWERS = 3
 
 
 def norm(text: str) -> str:
@@ -25,6 +26,7 @@ class GazetaState:
         data = dict(data or {})
         data.setdefault("facts", [])
         data.setdefault("graphics", [])
+        data.setdefault("answers", {})
         return data
 
     def save(self, data: dict[str, Any]) -> None:
@@ -32,10 +34,19 @@ class GazetaState:
             return
         data["facts"] = data["facts"][-KEEP_FACTS:]
         data["graphics"] = data["graphics"][-KEEP_GRAPHICS:]
+        data["answers"] = {k: data["answers"][k] for k in sorted(data["answers"])[-KEEP_ANSWERS:]}
         self.store.save_plan(KEY, data, self.now())
 
-    def record(self, fact: str | None, graphic: str | None, day: str) -> None:
+    def yesterday(self, today: str, memory: dict[str, Any] | None = None) -> dict | None:
+        """Answers from the latest issue before `today`, if any."""
+        answers = (memory or self.load()).get("answers", {})
+        earlier = [d for d in answers if d < today]
+        return answers[max(earlier)] if earlier else None
+
+    def record(self, fact: str | None, graphic: str | None, day: str, answers: dict | None = None) -> None:
         data = self.load()
+        if answers:
+            data["answers"][day] = answers
         if fact:
             data["facts"].append(fact)
         if graphic:

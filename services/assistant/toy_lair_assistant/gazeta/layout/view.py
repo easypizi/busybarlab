@@ -73,6 +73,7 @@ def build_view(
     f1: dict | None,
     image_src: str | None,
     sources_note: str = "",
+    puzzles: dict | None = None,
 ) -> dict[str, Any]:
     lead = issue.get("lead")
     lead_view = None
@@ -91,11 +92,10 @@ def build_view(
     for sid in SECTION_ORDER:
         sec = by_id.get(sid)
         if sec and sec.get("stories"):
-            sections.append({"id": sid, "title": SECTION_TITLES[sid], "stories": sec["stories"]})
+            sections.append({"id": sid, "title": SECTION_TITLES[sid], "stories": sec["stories"], "art": sec.get("art")})
     weather_view = None
     if weather:
         weather_view = {**weather, "short": _short(weather["summary"])}
-    tasks = list(day.get("tasks", []))
     return {
         "date_long": now.strftime("%A, %B %-d, %Y"),
         "date_short": now.strftime("%B %-d, %Y"),
@@ -117,7 +117,6 @@ def build_view(
             "month": now.strftime("%B").upper(),
             "weekday": now.strftime("%A"),
             "year": now.year,
-            "tasks": tasks,
             "idea": day.get("idea"),
             "poem": day.get("poem", []),
             "fact": fact,
@@ -127,8 +126,10 @@ def build_view(
         "f1": f1 if f1 and (f1.get("next") or f1.get("last")) else None,
         "sections": sections,
         "sources_note": sources_note,
+        "puzzles": puzzles,
+        "puzzles_page": None,
         "_body_step": 0,
-        "_day_step": 0,
+        "_fig_compact": 0,
     }
 
 
@@ -141,15 +142,49 @@ def apply_body_limit(view: dict) -> None:
     lead["body"] = _trim_body(lead["_full_body"], BODY_LIMITS[step])
 
 
-def shrink_front(view: dict) -> bool:
-    """One step smaller. Returns False when nothing is left to cut."""
+def shrink_lead(view: dict) -> bool:
+    """The lead column is too tall. Alternates shorter body and smaller picture, the illustration goes last."""
     lead = view.get("lead")
-    if view["_body_step"] < len(BODY_LIMITS) - 1 and lead:
+    if not lead:
+        return False
+    has_fig = lead["graphic"]["kind"] != "none"
+    last_body = len(BODY_LIMITS) - 1
+    body, fig = view["_body_step"], view["_fig_compact"]
+    if body < 2:
         view["_body_step"] += 1
         apply_body_limit(view)
         return True
-    if lead and lead["graphic"]["kind"] == "illustration":
+    if has_fig and fig < 1:
+        view["_fig_compact"] = 1
+        return True
+    if body < 3:
+        view["_body_step"] += 1
+        apply_body_limit(view)
+        return True
+    if has_fig and fig < 2:
+        view["_fig_compact"] = 2
+        return True
+    if body < last_body:
+        view["_body_step"] += 1
+        apply_body_limit(view)
+        return True
+    if lead["graphic"]["kind"] == "illustration":
         lead["graphic"] = {"kind": "none"}
+        return True
+    return False
+
+
+def shrink_side(view: dict) -> bool:
+    """The right column is too tall: fewer threat lines and teasers, then a shorter 'why'."""
+    if len(view["threat_lines"]) > 2:
+        view["threat_lines"] = view["threat_lines"][:-1]
+        return True
+    if len(view["teasers"]) > 2:
+        view["teasers"] = view["teasers"][:-1]
+        return True
+    lead = view.get("lead")
+    if lead and len(lead.get("why", "").split()) > 30:
+        lead["why"] = _words(lead["why"], 30)
         return True
     if view["threat_lines"]:
         view["threat_lines"] = view["threat_lines"][:-1]
@@ -160,24 +195,32 @@ def shrink_front(view: dict) -> bool:
     return False
 
 
-def shrink_day(view: dict) -> bool:
+def shrink_extras(view: dict) -> bool:
+    """The bottom band is too tall: shorter idea, then no idea."""
     day = view["day"]
-    if len(day["tasks"]) > 3:
-        day["tasks"] = day["tasks"][:-1]
-        return True
     idea = day.get("idea")
     if idea and len(idea["text"].split()) > 22:
         idea["text"] = _words(idea["text"], 22)
         return True
-    if len(day["tasks"]) > 2:
-        day["tasks"] = day["tasks"][:-1]
-        return True
     if idea:
         day["idea"] = None
         return True
-    if day["tasks"]:
-        day["tasks"] = day["tasks"][:-1]
-        return True
+    return False
+
+
+def shrink_front(view: dict) -> bool:
+    """One step smaller when the source of the overflow is unknown. Returns False when nothing is left."""
+    return shrink_extras(view) or shrink_lead(view) or shrink_side(view)
+
+
+def shrink_puzzles(view: dict) -> bool:
+    puzzles = view.get("puzzles")
+    if not puzzles:
+        return False
+    for key in ("onthisday", "yesterday", "chess"):
+        if puzzles.get(key):
+            puzzles[key] = [] if key == "onthisday" else None
+            return True
     return False
 
 

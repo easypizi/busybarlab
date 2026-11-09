@@ -9,7 +9,7 @@ def test_first_render_is_not_trimmed_and_steps_cut_whole_sentences():
     full = sum(len(p.split()) for p in v["lead"]["body"])
     V.apply_body_limit(v)
     assert sum(len(p.split()) for p in v["lead"]["body"]) == full
-    assert V.shrink_front(v)
+    assert V.shrink_lead(v)
     body = v["lead"]["body"]
     assert 0 < sum(len(p.split()) for p in body) <= V.BODY_LIMITS[1]
     assert all(p.rstrip().endswith((".", "?", "!")) and "…" not in p for p in body)
@@ -25,17 +25,49 @@ def test_shrink_front_runs_out():
     assert v["lead"]["graphic"]["kind"] != "illustration"
 
 
-def test_shrink_day_order():
+def test_shrink_lead_keeps_picture_until_the_end():
     v = sample.sample_view(1, 1)
-    assert len(v["day"]["tasks"]) == 5
-    V.shrink_day(v)
-    V.shrink_day(v)
-    assert len(v["day"]["tasks"]) == 3
-    V.shrink_day(v)
-    assert v["day"]["idea"]["text"].split().__len__() <= 23
-    while V.shrink_day(v):
+    v["lead"]["graphic"] = {"kind": "illustration", "src": "data:x", "caption": ""}
+    steps = 0
+    while v["_fig_compact"] < 2:
+        assert v["lead"]["graphic"]["kind"] == "illustration"
+        assert V.shrink_lead(v)
+        steps += 1
+    assert V.shrink_lead(v) and v["_body_step"] == len(V.BODY_LIMITS) - 1
+    assert V.shrink_lead(v) and v["lead"]["graphic"]["kind"] == "none"
+    assert not V.shrink_lead(v)
+
+
+def test_shrink_side_leaves_the_lead_alone():
+    v = sample.sample_view(1, 1)
+    v["lead"]["graphic"] = {"kind": "illustration", "src": "data:x", "caption": ""}
+    body = list(v["lead"]["body"])
+    while V.shrink_side(v):
         pass
-    assert v["day"]["tasks"] == [] and v["day"]["idea"] is None
+    assert v["lead"]["body"] == body and v["lead"]["graphic"]["kind"] == "illustration"
+    assert v["threat_lines"] == [] and v["teasers"] == []
+
+
+def test_shrink_extras_cuts_idea_only():
+    v = sample.sample_view(1, 1)
+    v["day"]["idea"]["text"] = "word " * 40 + "end."
+    assert V.shrink_extras(v) and len(v["day"]["idea"]["text"].split()) <= 23
+    assert V.shrink_extras(v) and v["day"]["idea"] is None
+    assert not V.shrink_extras(v)
+
+
+def test_shrink_puzzles_order():
+    v = sample.sample_view(1, 1)
+    assert V.shrink_puzzles(v) and v["puzzles"]["onthisday"] == []
+    assert V.shrink_puzzles(v) and v["puzzles"]["yesterday"] is None
+    assert V.shrink_puzzles(v) and v["puzzles"]["chess"] is None
+    assert not V.shrink_puzzles(v)
+
+
+def test_no_day_sheet_or_notes_in_html():
+    html = render.render_html(sample.sample_view())
+    assert "Notes" not in html and "To do today" not in html and 'id="day"' not in html
+    assert "Puzzles &amp; Pastimes" in html and "Yesterday's answers" in html
 
 
 def test_cap_flow_drops_from_longest():
@@ -78,6 +110,7 @@ def test_render_pdf_within_cap_and_page_numbers(chromium):
     assert pdf.startswith(b"%PDF")
     assert 3 <= info["pages"] <= 5
     assert any(t["page"] for t in v["teasers"])
+    assert v["puzzles_page"] == info["pages"]
 
 
 def test_render_overflow_trims_front(chromium):

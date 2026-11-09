@@ -13,19 +13,19 @@ from . import delivery, fallback_facts, illustrator, writer
 from .config import CITY, SECTION_TITLES
 from .desk import Desk
 from .editor import Editor, EditorError
+from .puzzles import chess_daily, daily as puzzles_daily
 from .layout import render as render_mod
 from .layout import view as view_mod
 from .openai_client import OpenAIClient
 from .sources import f1 as f1_src
 from .sources import feeds, http as http_mod
 from .sources import launches as launches_src
-from .sources import mail as mail_src
-from .sources import occasions, threats as threats_src, weather as weather_src
+from .sources import occasions, onthisday as onthisday_src, threats as threats_src, weather as weather_src
 from .state import GazetaState
 
 log = logging.getLogger(__name__)
 
-DEFAULT_DAY = {"tasks": [], "idea": None, "poem": ["The fog rolls in at seven,", "the printer hums along,", "the writers are on vacation,", "so here is half a song."]}
+DEFAULT_DAY = {"idea": None, "poem": ["The fog rolls in at seven,", "the printer hums along,", "the writers are on vacation,", "so here is half a song."]}
 PRINT_CALLBACK = "gazeta:print"
 EMPTY_ISSUE = {"lead": None, "teasers": [], "sections": [], "incidents": {"stories": []}}
 
@@ -41,7 +41,6 @@ class GazetaJob:
         calendar: Any,
         notify: Any,
         client: OpenAIClient | None = None,
-        fetch_mail: Callable[..., list[dict]] = mail_src.fetch,
         send_email: Callable[..., None] = delivery.send_pdf,
         render_pdf: Callable[..., tuple[bytes, dict]] = render_mod.render,
     ) -> None:
@@ -52,7 +51,6 @@ class GazetaJob:
         self.calendar = calendar
         self.notify = notify
         self.client = client or OpenAIClient(settings.openai_api_key)
-        self.fetch_mail = fetch_mail
         self.send_email = send_email
         self.render_pdf = render_pdf
         self._lock = threading.Lock()
@@ -102,7 +100,8 @@ class GazetaJob:
             "pool": lambda: feeds.fetch_all(http, now),
             "tasks": self._tasks,
             "events": self._events,
-            "mail": self._mail,
+            "chess": lambda: chess_daily.fetch(http),
+            "onthisday": lambda: onthisday_src.fetch(http, today),
         }
         with ThreadPoolExecutor(max_workers=8) as pool:
             futures = {name: pool.submit(fn) for name, fn in jobs.items()}
@@ -119,8 +118,17 @@ class GazetaJob:
         state = GazetaState(self.store, self.clock.now)
         memory = state.load()
         issue, fact = self._edit(now, data, threats, memory)
-        day = self._write(now, data, tasks, countdown, threats, issue)
-        image = self._illustrate(issue)
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            f_day = pool.submit(self._write, now, data, countdown, threats, issue)
+            f_front = pool.submit(self._illustrate, issue)
+            f_art = pool.submit(self._section_art, issue)
+            f_puzzles = pool.submit(self._puzzles, now, issue, data, state, memory)
+        day = f_day.result()
+        image = f_front.result()
+        art_src = f_art.result()
+        puzzles, answers = f_puzzles.result()
+        if art_src:
+            issue["sections"][0]["art"] = art_src
         view = view_mod.build_view(
             now=now,
             issue_no=max(1, (today - date.fromisoformat(self.settings.gazeta_start_date)).days + 1),
@@ -134,6 +142,7 @@ class GazetaJob:
             launches=data["launches"] or [],
             f1=data["f1"],
             image_src=image,
+            puzzles=puzzles,
         )
         pdf, info = self.render_pdf(view, self.settings.gazeta_max_pages)
         filename = f"IVANencial-Times-{today.isoformat()}.pdf"
@@ -142,7 +151,7 @@ class GazetaJob:
         if not on_demand and self.store is not None:
             self.store.mark(f"gazeta:done:{today.isoformat()}")
         graphic = (issue.get("lead") or {}).get("graphic", {}).get("kind")
-        state.record(fact["text"] if fact else None, graphic if graphic in ("infographic", "illustration", "none") else None, today.isoformat())
+        state.record(fact["text"] if fact else None, graphic if graphic in ("infographic", "illustration", "none") else None, today.isoformat(), answers)
         return {"pages": info["pages"], "trims": info["trims"], "filename": filename}
 
     # ---- inputs ----
@@ -157,11 +166,6 @@ class GazetaJob:
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         events = self.calendar.events_in_range(start, start + timedelta(days=1))
         return [{"title": e.title, "start": e.start} for e in events if not getattr(e, "todoist_id", None)]
-
-    def _mail(self) -> list[dict]:
-        if not (self.settings.gmail_user and self.settings.gmail_app_password):
-            return []
-        return self.fetch_mail(self.settings.gmail_user, self.settings.gmail_app_password)
 
     # ---- agents ----
 
@@ -208,20 +212,11 @@ class GazetaJob:
     def _teasers(sections: list[dict]) -> list[dict]:
         return [{"headline": sec["stories"][0]["headline"], "section": sec["id"]} for sec in sections[:3]]
 
-    def _write(self, now: datetime, data: dict, tasks: list, countdown: str | None, threats: dict, issue: dict) -> dict:
-        today = now.date().isoformat()
-        tomorrow = (now.date() + timedelta(days=1)).isoformat()
-        relevant = [
-            {"content": t.content, "due": t.due_date, "deadline": t.deadline, "project": t.project, "priority": t.priority}
-            for t in tasks
-            if (t.due_date and t.due_date <= today) or (t.deadline and t.deadline[:10] <= tomorrow)
-        ][:15]
+    def _write(self, now: datetime, data: dict, countdown: str | None, threats: dict, issue: dict) -> dict:
         context = {
             "date": now.strftime("%A, %B %-d, %Y"),
             "weather": (data["weather"] or {}).get("summary"),
             "calendar_today": data["events"] or [],
-            "tasks": relevant,
-            "mail_last_48h": data["mail"] or [],
             "countdown": countdown,
             "threat_summary": threats.get("summary"),
             "lead_headline": (issue.get("lead") or {}).get("headline"),
@@ -233,10 +228,43 @@ class GazetaJob:
             return DEFAULT_DAY
 
     def _illustrate(self, issue: dict) -> str | None:
-        graphic = (issue.get("lead") or {}).get("graphic") or {}
-        if graphic.get("kind") != "illustration" or not graphic.get("prompt"):
+        """The front page always gets a picture: the editor's scene, or one built from the lead."""
+        lead = issue.get("lead")
+        if not lead:
             return None
-        return illustrator.make(self.client, self.settings.gazeta_image_model, graphic["prompt"])
+        graphic = lead.get("graphic") or {}
+        if graphic.get("kind") == "infographic":
+            return None
+        scene = (graphic.get("prompt") or "").strip()
+        if not scene:
+            scene = f"{lead['headline']}. {lead.get('standfirst', '')} Show the place or an object from the story, no people in distress."
+            lead["graphic"] = {"kind": "illustration", "prompt": scene, "caption": graphic.get("caption", "")}
+        return self._engrave(scene)
+
+    def _section_art(self, issue: dict) -> str | None:
+        sections = issue.get("sections") or []
+        if not sections or not sections[0].get("stories"):
+            return None
+        story = sections[0]["stories"][0]
+        return self._engrave(f"{story['headline']}. {story.get('summary', '')}")
+
+    def _engrave(self, scene: str) -> str | None:
+        for _ in range(2):
+            src = illustrator.make(self.client, self.settings.gazeta_image_model, scene)
+            if src:
+                return src
+        return None
+
+    def _puzzles(self, now: datetime, issue: dict, data: dict, state: GazetaState, memory: dict) -> tuple[dict | None, dict | None]:
+        try:
+            today = now.date()
+            yesterday = state.yesterday(today.isoformat(), memory)
+            return puzzles_daily.assemble(
+                self.client, self.settings.gazeta_model_name(), issue, today, data.get("chess"), data.get("onthisday") or [], yesterday
+            )
+        except Exception as exc:
+            log.warning("puzzles failed: %s", exc)
+            return None, None
 
     # ---- delivery ----
 

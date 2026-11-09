@@ -8,7 +8,6 @@ from toy_lair_assistant.gazeta.editor import check_graphic
 
 def draft(**over):
     out = {
-        "tasks": [{"title": "Reply to Anna", "note": "Mail, due Fri", "origin": "mail"}],
         "idea": {"hook": "h", "text": "t"},
         "poem": ["a", "b", "c", "d"],
     }
@@ -31,9 +30,8 @@ def test_valid_draft_has_no_violations():
 
 
 def test_violations_reported():
-    bad = draft(poem=["a", "b"], tasks=[{"title": "t", "note": "n", "origin": "mail"}] * 6)
-    found = writer.violations(bad)
-    assert any("poem" in v for v in found) and any("tasks" in v for v in found)
+    found = writer.violations(draft(poem=["a", "b"]))
+    assert any("poem" in v for v in found)
 
 
 def test_retry_feeds_violations_back_and_stops_when_clean():

@@ -20,21 +20,32 @@ h2{ font-family:var(--serif); font-weight:700; font-size:12.5pt; line-height:1.1
 
 /* ---------- front page ---------- */
 .topline{ display:flex; justify-content:space-between; font-size:8pt; letter-spacing:.06em; text-transform:uppercase; padding-bottom:1.5mm; border-bottom:.6pt solid #000; }
-.mast{ text-align:center; padding:3mm 0 2mm; border-bottom:3pt double #000; }
-.mast h1{ font-family:var(--serif); font-weight:900; font-size:50pt; line-height:1; letter-spacing:-1pt; }
+.mast{ text-align:center; padding:1.6mm 0 1.4mm; border-bottom:3pt double #000; }
+.mast h1{ font-family:var(--serif); font-weight:900; font-size:42pt; line-height:1; letter-spacing:-1pt; }
 .mast p{ font-style:italic; font-size:9pt; color:var(--grey); margin-top:1mm; }
-.strip{ display:grid; grid-template-columns:1fr auto; column-gap:8mm; align-items:center; padding:2mm 0; border-bottom:.6pt solid #000; }
-.strip .wx{ display:flex; align-items:center; gap:4mm; }
-.strip .wx b{ font-family:var(--serif); font-size:20pt; font-weight:900; }
-.strip .count{ border:1.4pt solid #000; padding:1.4mm 3mm; font-family:var(--serif); font-weight:700; font-size:10.5pt; text-align:center; }
+.dayband{ display:grid; grid-template-columns:auto 1fr auto; column-gap:6mm; align-items:center; padding:2mm 0; border-bottom:.6pt solid #000; }
+.dnum{ display:flex; align-items:flex-end; gap:3mm; }
+.dnum .day{ font-family:var(--display); font-weight:900; font-size:46pt; line-height:.8; letter-spacing:-2pt; }
+.dnum .month{ font-family:var(--display); font-weight:700; font-size:11pt; line-height:1; }
+.dnum .weekday{ font-family:var(--display); font-weight:400; font-size:8.6pt; margin-top:1mm; }
+.dayband .wx{ display:flex; align-items:center; gap:3.5mm; background:var(--tint); padding:2mm 3mm; }
+.dayband .wx b{ font-family:var(--display); font-weight:900; font-size:19pt; line-height:1; white-space:nowrap; }
+.dayband .wx p{ font-size:8.2pt; line-height:1.3; }
+.dayband .sun{ font-size:8.2pt; line-height:1.55; }
+.dayband .sun b{ font-family:var(--display); font-weight:700; font-size:8.4pt; margin-left:1mm; }
+.dayband .count{ margin-top:1mm; border:1.4pt solid #000; padding:.8mm 2mm; font-family:var(--serif); font-weight:700; font-size:9pt; text-align:center; }
 .front{ display:grid; grid-template-columns:1fr 54mm; column-gap:6mm; margin-top:3mm; flex:1; min-height:0; }
 .lead .kicker{ font-family:var(--display); font-size:7.4pt; letter-spacing:.08em; text-transform:uppercase; border-top:2.2pt solid #000; padding-top:1.2mm; }
-.lead h2.hl{ font-family:var(--serif); font-weight:900; font-size:27pt; line-height:1.06; margin:1.5mm 0 2mm; letter-spacing:-.4pt; }
+.lead h2.hl{ font-family:var(--serif); font-weight:900; font-size:24pt; line-height:1.05; margin:1.2mm 0 1.6mm; letter-spacing:-.4pt; }
 .lead .stand{ font-style:italic; font-size:10.4pt; line-height:1.35; margin-bottom:2.5mm; }
 .fig{ margin-bottom:2.5mm; }
 .fig .art{ border:1.2pt solid #000; padding:1.5mm; background:#fff; }
-.fig img{ display:block; width:100%; height:64mm; object-fit:cover; filter:grayscale(1) contrast(1.2); }
-.fig svg{ display:block; width:100%; height:auto; }
+.fig img{ display:block; width:100%; height:46mm; object-fit:cover; filter:grayscale(1) contrast(1.2); }
+.fig svg{ display:block; width:100%; height:46mm; }
+.fig.compact img{ height:32mm; }
+.fig.compact svg{ height:36mm; }
+.fig.compact2 img{ height:22mm; }
+.fig.compact2 svg{ height:26mm; }
 .fig figcaption{ font-size:7.8pt; color:var(--grey); margin-top:1mm; font-style:italic; }
 .body{ column-count:2; column-gap:5mm; column-rule:.5pt solid #bbb; text-align:justify; hyphens:auto; font-size:9.8pt; }
 .body p + p{ text-indent:4mm; }
@@ -52,42 +63,18 @@ h2{ font-family:var(--serif); font-weight:700; font-size:12.5pt; line-height:1.1
 .threat{ margin-top:2mm; padding:1.8mm 3mm; border-top:2.2pt solid #000; border-bottom:.6pt solid #000; font-size:8.6pt; letter-spacing:.01em; text-align:center; font-weight:600; }
 .threat.alert{ border:2.6pt solid #000; background:var(--tint); }
 
-/* ---------- your day ---------- */
-.binding{ display:flex; justify-content:space-between; padding:0 6mm; margin-bottom:3.5mm; }
-.binding i{ width:4mm; height:4mm; border-radius:50%; background:#000; display:block; }
-.dmast{ display:grid; grid-template-columns:auto 1fr; column-gap:7mm; align-items:end; }
-.day{ font-family:var(--display); font-weight:900; font-size:100pt; line-height:.78; letter-spacing:-4pt; margin-left:-1.5mm; }
-.month{ font-family:var(--display); font-weight:700; font-size:22pt; line-height:1; }
-.weekday{ font-family:var(--display); font-weight:400; font-size:13pt; margin-top:1.5mm; }
-.issue{ margin-top:3mm; font-size:8.8pt; color:var(--grey); }
-.issue b{ font-family:var(--display); font-weight:700; color:#000; font-size:10pt; display:block; margin-bottom:.6mm; }
-.sunline{ display:flex; gap:8mm; margin-top:4mm; padding:2mm 0; border-top:2.2pt solid #000; border-bottom:.6pt solid #000; font-size:8.8pt; }
-.sunline span b{ font-family:var(--display); font-weight:700; font-size:9.2pt; margin-left:1.2mm; }
-.sunline .count{ margin-left:auto; }
-.grid{ display:grid; grid-template-columns:1.08fr 1fr; column-gap:9mm; margin-top:4mm; }
-.grid h2{ font-family:var(--display); font-size:11pt; }
-section + section{ margin-top:4mm; }
-.weather{ display:grid; grid-template-columns:auto 1fr; column-gap:5mm; align-items:center; background:var(--tint); padding:3.4mm 4mm; }
-.temp{ font-family:var(--display); font-weight:900; font-size:30pt; line-height:.9; }
-.weather p{ font-size:8.8pt; }
-.tasks{ list-style:none; }
-.tasks li{ display:grid; grid-template-columns:6mm 1fr; column-gap:2.5mm; padding:2.2mm 0; border-bottom:.5pt solid #b5b5b5; }
-.tasks li:last-child{ border-bottom:none; }
-.box{ width:5mm; height:5mm; border:1.2pt solid #000; margin-top:.5mm; }
-.tasks strong{ font-weight:600; display:block; }
-.tasks small{ font-size:8.3pt; color:var(--grey); display:block; }
-.idea{ border:1.6pt solid #000; padding:3.2mm 4mm; }
-.idea .hook{ font-family:var(--display); font-weight:700; font-size:10pt; line-height:1.2; margin:.6mm 0 1.6mm; }
-.idea p{ font-size:8.8pt; }
-.fact{ background:var(--tint); padding:3mm 4mm; }
-.fact p{ font-size:9pt; }
-.fact .src{ font-size:7.8pt; color:var(--grey); margin-top:1mm; }
-.notes{ flex:1; margin-top:5mm; display:flex; flex-direction:column; min-height:0; }
-.notes h2{ font-family:var(--display); font-size:11pt; }
-.lines{ flex:1; min-height:0; margin-top:1mm; background-image:repeating-linear-gradient(to bottom, transparent 0, transparent 8.2mm, #9a9a9a 8.2mm, #9a9a9a calc(8.2mm + .5pt)); }
-.foot{ margin-top:auto; padding-top:3mm; border-top:2.2pt solid #000; display:grid; grid-template-columns:1fr auto; column-gap:8mm; align-items:end; }
-.poem{ font-style:italic; font-size:10.2pt; line-height:1.45; }
-.sign{ font-size:8.2pt; color:var(--grey); text-align:right; }
+/* ---------- front extras ---------- */
+.extras{ display:grid; grid-template-columns:1fr 1fr 1.15fr; column-gap:5mm; margin-top:3mm; padding-top:2.4mm; border-top:2.2pt solid #000; align-items:stretch; }
+.extras h2{ font-family:var(--display); font-size:9.4pt; margin-bottom:1.2mm; }
+.fact{ background:var(--tint); padding:2.4mm 3mm; }
+.fact p{ font-size:8.6pt; line-height:1.35; }
+.fact .src{ font-size:7.6pt; color:var(--grey); margin-top:.8mm; }
+.idea{ border:1.6pt solid #000; padding:2.4mm 3mm; }
+.idea .hook{ font-family:var(--display); font-weight:700; font-size:8.8pt; line-height:1.2; margin:.4mm 0 1.2mm; }
+.idea p{ font-size:8.4pt; line-height:1.35; }
+.poembox{ display:flex; flex-direction:column; justify-content:space-between; padding:0 1mm; }
+.poem{ font-style:italic; font-size:8.8pt; line-height:1.35; }
+.sign{ font-size:7.8pt; color:var(--grey); text-align:right; }
 
 /* ---------- sections (flowing pages) ---------- */
 .flow{ page:flow; }
@@ -115,6 +102,40 @@ table.launch td{ border-bottom:.5pt solid #bbb; padding:.9mm 1mm; vertical-align
 .story b{ font-weight:600; }
 .story .src{ color:var(--grey); font-size:8pt; }
 .factline{ margin-top:3mm; border-top:2.2pt solid #000; padding-top:1.5mm; font-size:8.6pt; }
+
+.art2{ margin:0 0 2.5mm; break-inside:avoid; }
+.art2 .art{ border:1.2pt solid #000; padding:1.2mm; }
+.art2 img{ display:block; width:100%; height:42mm; object-fit:cover; filter:grayscale(1) contrast(1.2); }
+
+/* ---------- puzzles page ---------- */
+.fixed.last{ break-after:auto; page-break-after:auto; }
+.ptitle{ font-family:var(--serif); font-weight:900; font-size:20pt; border-bottom:3pt double #000; padding-bottom:1mm; margin-bottom:3mm; }
+.prow{ display:grid; column-gap:7mm; margin-bottom:4mm; padding-bottom:3mm; border-bottom:.6pt solid #000; }
+.prow:last-of-type{ border-bottom:none; }
+.prow h3{ font-family:var(--display); font-size:9.4pt; margin-bottom:1.6mm; }
+.cw-wrap{ grid-template-columns:auto 1fr; }
+.cw{ display:grid; gap:0; }
+.cw .c{ position:relative; width:6.2mm; height:6.2mm; }
+.cw .c.on{ border:.9pt solid #000; margin:-.45pt; background:#fff; }
+.cw .c i{ position:absolute; top:.2mm; left:.5mm; font-style:normal; font-size:5pt; line-height:1; font-family:var(--text); }
+.clues{ display:grid; grid-template-columns:1fr 1fr; column-gap:4mm; font-size:7.6pt; line-height:1.28; }
+.clues h4{ font-family:var(--serif); font-size:9pt; margin-bottom:.8mm; }
+.clues li{ list-style:none; margin-bottom:.7mm; }
+.clues li b{ font-weight:600; }
+.clues li span{ color:var(--grey); }
+.sk-chess{ grid-template-columns:auto 1fr; align-items:start; }
+.sk{ border-collapse:collapse; border:1.8pt solid #000; }
+.sk td{ width:6.4mm; height:6.4mm; text-align:center; font-family:var(--display); font-size:9pt; border:.5pt solid #777; }
+.sk td.r{ border-right:1.6pt solid #000; }
+.sk td.b{ border-bottom:1.6pt solid #000; }
+.chessbox svg{ width:60mm; height:60mm; display:block; }
+.chessbox .cap{ font-size:8pt; margin-top:1mm; }
+.lower{ grid-template-columns:1.3fr 1fr; }
+.otd li{ list-style:none; font-size:8.6pt; line-height:1.35; margin-bottom:1.3mm; }
+.otd li b{ font-family:var(--display); font-size:8pt; margin-right:1.2mm; }
+.ans{ font-size:7.4pt; line-height:1.35; color:#222; }
+.ans b{ font-weight:600; }
+.ans pre{ font-family:var(--text); font-size:7pt; line-height:1.25; }
 </style>
 </head>
 <body>
@@ -123,9 +144,11 @@ table.launch td{ border-bottom:.5pt solid #bbb; padding:.9mm 1mm; vertical-align
 <div class="fixed" id="front">
   <div class="topline"><span>Vol. I · No. {{ v.issue_no }}</span><span>{{ v.date_long }}</span><span>{{ v.city }}</span></div>
   <header class="mast"><h1>IVANencial Times</h1><p>All the news that fits on your desk. Circulation: one.</p></header>
-  <div class="strip">
-    <div class="wx">{% if v.weather %}<b>{{ v.weather.now_c }}°C</b><span class="small">High {{ v.weather.high }}, low {{ v.weather.low }}. {{ v.weather.short }}</span>{% endif %}</div>
-    {% if v.countdown %}<div class="count">{{ v.countdown }}</div>{% endif %}
+  <div class="dayband">
+    <div class="dnum"><span class="day">{{ v.day.num }}</span><div><div class="month">{{ v.day.month }}</div><div class="weekday">{{ v.day.weekday }}</div></div></div>
+    <div class="wx">{% if v.weather %}<b>{{ v.weather.now_c }}°C</b><p>{{ v.weather.summary }}</p>{% endif %}</div>
+    <div class="sun">{% if v.weather %}Sunrise<b>{{ v.weather.sunrise }}</b><br>Sunset<b>{{ v.weather.sunset }}</b><br>Daylight<b>{{ v.weather.daylight }}</b>{% endif %}
+      {% if v.countdown %}<div class="count">{{ v.countdown }}</div>{% endif %}</div>
   </div>
   <div class="front">
     <article class="lead">
@@ -134,9 +157,9 @@ table.launch td{ border-bottom:.5pt solid #bbb; padding:.9mm 1mm; vertical-align
       <h2 class="hl">{{ v.lead.headline }}</h2>
       <p class="stand">{{ v.lead.standfirst }}</p>
       {% if v.lead.graphic.kind == "illustration" %}
-        <figure class="fig"><div class="art"><img src="{{ v.lead.graphic.src }}" alt=""></div><figcaption>{{ v.lead.graphic.caption }}</figcaption></figure>
+        <figure class="fig{% if v._fig_compact == 2 %} compact compact2{% elif v._fig_compact %} compact{% endif %}"><div class="art"><img src="{{ v.lead.graphic.src }}" alt=""></div><figcaption>{{ v.lead.graphic.caption }}</figcaption></figure>
       {% elif v.lead.graphic.kind == "infographic" %}
-        <figure class="fig"><div class="art">{{ v.lead.graphic.svg|safe }}</div>{% if v.lead.graphic.caption %}<figcaption>{{ v.lead.graphic.caption }}</figcaption>{% endif %}</figure>
+        <figure class="fig{% if v._fig_compact == 2 %} compact compact2{% elif v._fig_compact %} compact{% endif %}"><div class="art">{{ v.lead.graphic.svg|safe }}</div>{% if v.lead.graphic.caption %}<figcaption>{{ v.lead.graphic.caption }}</figcaption>{% endif %}</figure>
       {% endif %}
       <div class="body">{% for p in v.lead.body %}<p>{{ p }}</p>{% endfor %}</div>
       <p class="small" style="margin-top:1.5mm">Source: {{ v.lead.source }}</p>
@@ -145,8 +168,8 @@ table.launch td{ border-bottom:.5pt solid #bbb; padding:.9mm 1mm; vertical-align
     <aside class="side">
       <section><h3>In this issue</h3>
         <ul class="tease">{% for t in v.teasers %}<li><b>{{ t.headline }}</b><span class="pg">{{ t.section }}{% if t.page %} · p. {{ t.page }}{% endif %}</span></li>{% endfor %}
-          <li><b>Your Day: tasks, idea, poem</b><span class="pg">p. 2</span></li>
-          <li><b>Bay Area Incidents</b><span class="pg">p. 3</span></li></ul>
+          <li><b>Bay Area Incidents</b><span class="pg">p. 2</span></li>
+          {% if v.puzzles %}<li><b>Puzzles &amp; Pastimes</b><span class="pg">{% if v.puzzles_page %}p. {{ v.puzzles_page }}{% else %}last page{% endif %}</span></li>{% endif %}</ul>
       </section>
       {% if v.lead and v.lead.why %}<section><div class="why"><b>Why it matters to you</b>{{ v.lead.why }}</div></section>{% endif %}
       <section class="watch"><h3>Threat watch</h3>
@@ -154,37 +177,11 @@ table.launch td{ border-bottom:.5pt solid #bbb; padding:.9mm 1mm; vertical-align
     </aside>
   </div>
   <div class="threat{% if v.threat_alert %} alert{% endif %}">{{ v.threat_line }}</div>
-</div>
-
-<!-- ================= YOUR DAY ================= -->
-<div class="fixed" id="day">
-  <div class="binding"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-  <header class="dmast">
-    <div class="day">{{ v.day.num }}</div>
-    <div><div class="month">{{ v.day.month }}</div><div class="weekday">{{ v.day.weekday }}, {{ v.day.year }}</div>
-      <div class="issue"><b>Your Day, Ivan</b>No. {{ v.issue_no }}. Circulation: one. {{ v.city }}</div></div>
-  </header>
-  <div class="sunline">
-    {% if v.weather %}<span>Sunrise<b>{{ v.weather.sunrise }}</b></span><span>Sunset<b>{{ v.weather.sunset }}</b></span><span>Daylight<b>{{ v.weather.daylight }}</b></span>{% endif %}
-    {% if v.countdown %}<span class="count">{{ v.countdown }}</span>{% endif %}
+  <div class="extras">
+    {% if v.day.fact %}<section class="fact"><h2>Dumb but true</h2><p>{{ v.day.fact.text }}</p>{% if v.day.fact.source_name %}<div class="src">Source: {{ v.day.fact.source_name }}</div>{% endif %}</section>{% else %}<div></div>{% endif %}
+    {% if v.day.idea %}<section class="idea"><h2>Idea of the day</h2><div class="hook">{{ v.day.idea.hook }}</div><p>{{ v.day.idea.text }}</p></section>{% else %}<div></div>{% endif %}
+    <div class="poembox"><p class="poem">{% for line in v.day.poem %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p><p class="sign">Printed by Tito, {{ v.built_at }} PT</p></div>
   </div>
-  <div class="grid">
-    <div>
-      {% if v.weather %}<section><h2>Weather in Burlingame</h2>
-        <div class="weather"><div class="temp">{{ v.weather.now_c }}°C</div><p>{{ v.weather.summary }}</p></div></section>{% endif %}
-      {% if v.day.tasks %}<section><h2>To do today</h2>
-        <ul class="tasks">{% for t in v.day.tasks %}<li><span class="box"></span><span><strong>{{ t.title }}</strong><small>{{ t.note }}</small></span></li>{% endfor %}</ul></section>{% endif %}
-    </div>
-    <div>
-      {% if v.day.fact %}<section class="fact"><h2>Dumb but true</h2><p>{{ v.day.fact.text }}</p>{% if v.day.fact.source_name %}<div class="src">Source: {{ v.day.fact.source_name }}</div>{% endif %}</section>{% endif %}
-      {% if v.day.idea %}<section class="idea"><h2>Idea of the day</h2><div class="hook">{{ v.day.idea.hook }}</div><p>{{ v.day.idea.text }}</p></section>{% endif %}
-    </div>
-  </div>
-  <section class="notes"><h2>Notes</h2><div class="lines"></div></section>
-  <footer class="foot">
-    <p class="poem">{% for line in v.day.poem %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
-    <p class="sign">Printed by Tito<br>at {{ v.built_at }} PT</p>
-  </footer>
 </div>
 
 <!-- ================= SECTIONS ================= -->
@@ -214,10 +211,48 @@ table.launch td{ border-bottom:.5pt solid #bbb; padding:.9mm 1mm; vertical-align
   <div class="cols">
     {% for sec in v.sections %}
     <div class="rubric"><h3>{{ sec.title }}</h3>
+      {% if sec.art %}<figure class="art2"><div class="art"><img src="{{ sec.art }}" alt=""></div></figure>{% endif %}
       {% for s in sec.stories %}<div class="story"><b>{{ s.headline }}.</b> {{ s.summary }} <span class="src">{{ s.source }}</span></div>{% endfor %}
     </div>
     {% endfor %}
   </div>
 </div>
+{% if v.puzzles %}
+<!-- ================= PUZZLES ================= -->
+<div class="fixed last" id="puzzles">
+  <h1 class="ptitle">Puzzles &amp; Pastimes</h1>
+  {% set cw = v.puzzles.crossword %}
+  {% if cw %}
+  <div class="prow cw-wrap">
+    <div><h3>Crossword</h3>
+      <div class="cw" style="grid-template-columns:repeat({{ cw.cols }},6.2mm)">
+        {% for row in cw.cells %}{% for c in row %}<div class="c{% if c %} on{% endif %}">{% if c and c.num %}<i>{{ c.num }}</i>{% endif %}</div>{% endfor %}{% endfor %}
+      </div></div>
+    <div class="clues">
+      <div><h4>Across</h4><ul>{% for w in cw.across %}<li><b>{{ w.num }}.</b> {{ w.clue }} <span>({{ w.length }})</span></li>{% endfor %}</ul></div>
+      <div><h4>Down</h4><ul>{% for w in cw.down %}<li><b>{{ w.num }}.</b> {{ w.clue }} <span>({{ w.length }})</span></li>{% endfor %}</ul></div>
+    </div>
+  </div>
+  {% endif %}
+  {% if v.puzzles.sudoku or v.puzzles.chess %}
+  <div class="prow sk-chess">
+    {% if v.puzzles.sudoku %}<div><h3>Sudoku</h3>
+      <table class="sk">{% for row in v.puzzles.sudoku.grid %}{% set ri = loop.index %}<tr>{% for n in row %}<td class="{% if loop.index % 3 == 0 and not loop.last %}r{% endif %}{% if ri % 3 == 0 and ri != 9 %} b{% endif %}">{% if n %}{{ n }}{% endif %}</td>{% endfor %}</tr>{% endfor %}</table></div>{% else %}<div></div>{% endif %}
+    {% if v.puzzles.chess %}<div class="chessbox"><h3>Chess problem of the day</h3>{{ v.puzzles.chess.svg|safe }}
+      <div class="cap">{{ v.puzzles.chess.mover }} to move and win. {{ v.puzzles.chess.moves }} moves in the line{% if v.puzzles.chess.rating %}, rated {{ v.puzzles.chess.rating }}{% endif %}.</div></div>{% endif %}
+  </div>
+  {% endif %}
+  {% if v.puzzles.onthisday or v.puzzles.yesterday %}
+  <div class="prow lower">
+    {% if v.puzzles.onthisday %}<div class="otd"><h3>On this day</h3><ul>{% for e in v.puzzles.onthisday %}<li><b>{{ e.year }}</b>{{ e.text }}</li>{% endfor %}</ul></div>{% else %}<div></div>{% endif %}
+    {% if v.puzzles.yesterday %}{% set y = v.puzzles.yesterday %}<div class="ans"><h3>Yesterday's answers</h3>
+      {% if y.crossword %}<p><b>Across:</b> {% for n, a in y.crossword.across %}{{ n }} {{ a }}{% if not loop.last %}, {% endif %}{% endfor %}.<br><b>Down:</b> {% for n, a in y.crossword.down %}{{ n }} {{ a }}{% if not loop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+      {% if y.sudoku %}<p><b>Sudoku:</b></p><pre>{% for row in y.sudoku %}{{ row|join(' ') }}
+{% endfor %}</pre>{% endif %}
+      {% if y.chess %}<p><b>Chess:</b> {{ y.chess|join(' ') }}</p>{% endif %}</div>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
 </body>
 </html>
